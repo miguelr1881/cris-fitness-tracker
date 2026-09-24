@@ -219,6 +219,10 @@ class DiaryTests(unittest.TestCase):
         self.assertTrue(pending.value.suggested_filename.endswith('.png'))
 
     def test_responsive_views_and_screenshots(self):
+        self.assertEqual(self.page.locator('meta[name="apple-mobile-web-app-title"]').get_attribute('content'), 'Cri')
+        manifest = self.page.request.get(URL + 'manifest.webmanifest').json()
+        self.assertEqual((manifest['name'], manifest['short_name']), ('Cri', 'Cri'))
+        self.assertEqual((manifest['start_url'], manifest['scope']), ('./', './'))
         for width, height in [(320, 740), (402, 874), (768, 1024), (1440, 960)]:
             self.page.set_viewport_size({"width": width, "height": height})
             for view in ['diary', 'routines', 'progress']:
@@ -303,7 +307,7 @@ class DiaryTests(unittest.TestCase):
         self.page.reload()
         self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
         self.assertIn('Chocolate de prueba', self.page.locator('#sheet').inner_text())
-        self.assertNotIn('Siguiente sorpresa', self.page.locator('#sheet').inner_text())
+        self.assertIn('Siguiente sorpresa', self.page.locator('.following-reward').inner_text())
         self.assertNotIn('Secreto no visible', self.page.locator('#sheet').inner_text())
         self.page.get_by_role('button', name='Cerrar', exact=True).click()
         self.page.locator('.quick-action[data-type="barre"]').click()
@@ -329,7 +333,7 @@ class DiaryTests(unittest.TestCase):
         self.assertFalse(self.page.locator('#sheet').is_visible())
         self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
         self.assertIn('Siguiente sorpresa', self.page.locator('#sheet').inner_text())
-        self.assertNotIn('Secreto no visible', self.page.locator('#sheet').inner_text())
+        self.assertIn('Secreto no visible', self.page.locator('.following-reward').inner_text())
 
     def test_reward_config_backup_and_retroactive_days(self):
         result = self.page.evaluate("""async () => {
@@ -372,6 +376,15 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(self.stored()['rewards'][0]['description'], 'Miguel te invita a Bubble Tea de Xing Fu Tan.')
 
     def test_training_and_rewards_geometry(self):
+        self.page.evaluate("""async () => {
+          const model = await import('./store.js');
+          const { DEFAULT_REWARDS } = await import('./rewards.js');
+          const state = model.loadStore();
+          state.activities = [];
+          state.rewards = structuredClone(DEFAULT_REWARDS);
+          model.saveStore(state);
+        }""")
+        self.page.reload()
         self.start_routine()
         for width, height in [(320, 740), (402, 874), (1440, 960)]:
             self.page.set_viewport_size({'width':width,'height':height})
@@ -379,6 +392,8 @@ class DiaryTests(unittest.TestCase):
             self.page.screenshot(path=str(SCREENSHOTS / f'workout-{width}.png'), full_page=True)
             self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
             self.assertFalse(self.page.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
+            self.assertIn('Yogurt Myka', self.page.locator('.following-reward').inner_text())
+            self.assertIn('10 sorpresas por descubrir', self.page.locator('.secret-rewards').inner_text())
             self.page.screenshot(path=str(SCREENSHOTS / f'rewards-{width}.png'))
             self.page.get_by_role('button', name='Cerrar', exact=True).click()
 
@@ -432,15 +447,20 @@ class DiaryTests(unittest.TestCase):
           };
           const sync = createSync({client,storage,apply:value => active=value});
           await sync.activate({user:{id:identity}});
+          const newAccount = sync.confirmed && !sync.hasRemoteCopy;
           active.settings.rest = 61;
           sync.adapter.setItem('',JSON.stringify(active));
           await sync.flush();
           const first = remote.get(identity).payload.settings.rest;
+          const savedAccount = sync.confirmed && sync.hasRemoteCopy;
           offline = true;
           active.settings.rest = 62;
           sync.adapter.setItem('',JSON.stringify(active));
           await sync.flush();
           const pending = sync.pending;
+          sync.detach();
+          await sync.activate({user:{id:identity}});
+          const localCopyOnly = !sync.confirmed && sync.pending && sync.hasRemoteCopy;
           sync.detach();
           identity = 'account-b';
           offline = false;
@@ -461,9 +481,9 @@ class DiaryTests(unittest.TestCase):
           let demoRejected = false;
           try { sync.adapter.setItem('',JSON.stringify({...active,demo:true})); } catch { demoRejected=true; }
           sync.detach();
-          return {first,pending,second,resumed,conflict,intact,recovered,backup,demoRejected};
+          return {first,pending,second,resumed,conflict,intact,recovered,backup,demoRejected,newAccount,savedAccount,localCopyOnly};
         }""")
-        self.assertEqual(result, {'first':61,'pending':True,'second':45,'resumed':62,'conflict':True,'intact':90,'recovered':90,'backup':62,'demoRejected':True})
+        self.assertEqual(result, {'first':61,'pending':True,'second':45,'resumed':62,'conflict':True,'intact':90,'recovered':90,'backup':62,'demoRejected':True,'newAccount':True,'savedAccount':True,'localCopyOnly':True})
 
     def test_specific_reward_goals(self):
         result = self.page.evaluate("""async () => {
@@ -589,8 +609,10 @@ class DiaryTests(unittest.TestCase):
         self.page.get_by_role('textbox', name='Contraseña', exact=True).fill('fixture-only')
         self.page.get_by_role('button', name='Iniciar sesión', exact=True).click()
         self.page.locator('.cloud-email').wait_for()
+        self.assertIn('Ya estás lista para iniciar tu diario', self.page.locator('#cloud-guidance').inner_text())
+        self.page.screenshot(path=str(SCREENSHOTS / 'cloud-new-account-402.png'))
         self.assertEqual(self.stored(), original)
-        self.page.get_by_role('button', name='Cerrar', exact=True).click()
+        self.page.get_by_role('button', name='Ir a mi diario', exact=True).click()
         self.page.locator('.quick-action[data-type="barre"]').click()
         self.page.locator('[name="calories"]').fill('234')
         self.page.get_by_role('button', name='Guardar actividad', exact=True).click()
@@ -611,13 +633,18 @@ class DiaryTests(unittest.TestCase):
             other.get_by_role('textbox', name='Contraseña', exact=True).fill('fixture-only')
             other.get_by_role('button', name='Iniciar sesión', exact=True).click()
             other.locator('.cloud-email').wait_for()
+            self.assertIn('Tu diario está sincronizado', other.locator('#cloud-guidance').inner_text())
             recovered = other.evaluate('key => JSON.parse(localStorage.getItem(key))', account_key)
             self.assertEqual(recovered['payload']['activities'][0]['calories'], 234)
             self.assertEqual(recovered['revision'], 1)
-            other.screenshot(path=str(SCREENSHOTS / 'cloud-account-402.png'))
+            for width, height in [(320,740),(402,874),(1440,960)]:
+                other.set_viewport_size({'width':width,'height':height})
+                self.assertFalse(other.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
+                other.screenshot(path=str(SCREENSHOTS / f'cloud-account-{width}.png'))
         finally:
             fresh.close()
         self.page.locator('.mobile-settings').click()
+        self.assertEqual(self.page.locator('.settings-email').inner_text(), 'cristina@example.test')
         self.page.get_by_role('button', name='Mi cuenta', exact=True).click()
         self.page.get_by_role('button', name='Cerrar sesión', exact=True).click()
         self.page.wait_for_function("!localStorage.getItem('cristina.auth.v1')")

@@ -1,6 +1,6 @@
 import { DEFAULT_REWARDS, METRICS, migrateRewardCopy, migrateRewardGoal } from './rewards.js';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 export const STORAGE_KEY = 'cristina.diary.preview.v1';
 export const TYPES = {
   barre: { label: 'Barré', icon: 'sparkles', color: 'lilac' },

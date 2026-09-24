@@ -318,6 +318,10 @@ function saveRoutine(event) {
 
 function settingsSheet() {
   openSheet('Ajustes', `<div class="sheet-content"><section class="settings-group"><div class="settings-row"><span>Cristina</span><span class="preview-tag">${data.demo ? 'Vista previa' : cloud?.account ? 'Cuenta' : 'Local'}</span></div><p class="muted-copy">${escape(cloud?.label || 'Solo en este dispositivo')}</p><button class="text-button" data-action="cloud-account">${icon('cloud')}Mi cuenta</button></section><section class="settings-group"><h3>Mis preferencias</h3><div class="settings-row"><span>Unidad de peso</span><div class="segmented" role="group" aria-label="Unidad de peso">${['kg', 'lb'].map(unit => `<button data-action="unit" data-unit="${unit}" class="${data.settings.unit === unit ? 'active' : ''}" aria-pressed="${data.settings.unit === unit}">${unit}</button>`).join('')}</div></div><p class="muted-copy">Español · Inglés en una próxima entrega.</p></section><section class="settings-group"><h3>Mi respaldo</h3><p class="muted-copy">Guarda una copia en Archivos o iCloud antes de borrar los datos del navegador o cambiar de teléfono.</p><div class="settings-buttons"><button class="secondary-button" data-action="export-backup">${icon('download')}Exportar</button><button class="secondary-button" data-action="import-backup">${icon('upload')}Importar</button></div><input type="file" id="backup-file" accept="application/json,.json" hidden></section><section class="settings-group"><h3>Recompensas</h3><button class="text-button" data-action="manage-rewards">Editar recompensas</button></section><section class="settings-group"><h3>Sonido del temporizador</h3><p class="muted-copy">Audio multimedia, como en REAWAKEN.</p><button class="text-button" data-action="test-sound">${icon('volume-2')}Probar sonido</button></section>${data.demo ? '<section class="settings-group"><h3>Datos de ejemplo</h3><button class="text-button" data-action="start-empty">Empezar mi diario vacío</button></section>' : ''}<p class="muted-copy" style="margin-top:20px">Cristina · versión ${VERSION}</p></div>`);
+  if (cloud?.account) {
+    const status = sheetBody.querySelector('.settings-group .muted-copy');
+    status.insertAdjacentHTML('beforebegin', `<p class="settings-email">${escape(cloud.account.email)}</p>`);
+  }
 }
 
 function download(blob, filename) {
@@ -653,7 +657,7 @@ const training = createTraining({ getData: () => data, commit, escape, icon, ico
   openActivity,
 });
 const rewardsUI = createRewards({ getData: () => data, commit, escape, icon, icons, openSheet, closeSheet, render, toast, download });
-cloud = createCloud({ getData: () => data, escape, icon, openSheet, closeSheet, toast, download,
+cloud = createCloud({ getData: () => data, escape, icon, icons, openSheet, closeSheet, toast, download, goDiary: () => navigate('diary'),
   canSwitch: () => !sheet.open && !data.activeWorkout && !timer.running && !blocked,
   apply: incoming => { data = incoming; showingWorkout = false; pendingExternalData = null; stopWorkoutTimer(); render(); },
 });

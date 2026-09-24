@@ -10,6 +10,15 @@ export function createCloud(api) {
   let loginBusy = false;
   const sync = client && createSync({ client, apply: api.apply, canApply: api.canSwitch, status: value => { label = value; renderStatus(); } });
 
+  function accountMessage() {
+    if (!sync?.account) return '';
+    if (sync.conflict) return 'Hay dos versiones del diario. Tus copias se conservan hasta que elijas cuál usar.';
+    if (sync.pending) return 'Tus cambios están guardados en este dispositivo y pendientes de confirmar en la nube.';
+    if (!sync.confirmed) return 'No se pudo confirmar la conexión con la nube. Tu copia local sigue disponible.';
+    if (sync.hasRemoteCopy) return 'Tu diario está sincronizado. Ya puedes continuar donde lo dejaste.';
+    return 'Ya estás lista para iniciar tu diario. Esta cuenta todavía no tiene registros en la nube.';
+  }
+
   function renderStatus() {
     if (sync?.account && sync.pending && label === 'Guardado en la nube') label = 'Cambios pendientes';
     const top = document.querySelector('.local-status');
@@ -18,6 +27,8 @@ export function createCloud(api) {
     if (footer && sync?.account) footer.textContent = label;
     const detail = document.querySelector('#cloud-status');
     if (detail) detail.textContent = label;
+    const guidance = document.querySelector('#cloud-guidance');
+    if (guidance) guidance.textContent = accountMessage();
     const conflict = document.querySelector('#cloud-conflict');
     if (conflict) conflict.hidden = !sync?.conflict;
   }
@@ -25,6 +36,10 @@ export function createCloud(api) {
   function show() {
     const account = sync?.account;
     api.openSheet('Mi cuenta', `<div class="sheet-content"><p id="cloud-status" role="status">${api.escape(label)}</p>${account ? `<p class="cloud-email">${api.escape(account.email)}</p><div class="cloud-actions"><button class="secondary-button" data-action="cloud-sync">${api.icon('cloud-upload')}Sincronizar</button><button class="text-button" data-action="cloud-link">${api.icon('folder-input')}Vincular diario local</button><button class="text-button" data-action="cloud-logout">${api.icon('log-out')}Cerrar sesión</button></div><section id="cloud-conflict" ${sync.conflict ? '' : 'hidden'}><h3>Hay dos versiones del diario</h3><p class="muted-copy">Elige cuál conservar. La copia local anterior quedará disponible para descargar.</p><div class="cloud-actions"><button class="secondary-button" data-action="cloud-keep-local">Conservar este dispositivo</button><button class="secondary-button" data-action="cloud-use-remote">Usar copia de nube</button></div></section>${sync.recovery() ? '<button class="text-button" data-action="cloud-recovery">Descargar copia anterior</button>' : ''}` : `<form id="cloud-login-form"><label class="field"><span>Correo</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label><label class="field"><span>Contraseña</span><input name="password" type="password" autocomplete="current-password" required></label><p id="cloud-error" role="alert"></p><button class="primary-button" type="submit" ${!client ? 'disabled' : ''}>${api.icon('log-in')}Iniciar sesión</button></form><button class="text-button" data-action="cloud-resume">Abrir cuenta ya iniciada</button>`}</div>`);
+    if (account) {
+      document.querySelector('.cloud-email').insertAdjacentHTML('afterend', `<p id="cloud-guidance" class="account-guidance" aria-live="polite">${api.escape(accountMessage())}</p><button class="primary-button cloud-continue" data-action="cloud-diary">${api.icon('arrow-right')}Ir a mi diario</button>`);
+      api.icons();
+    }
   }
 
   async function openSession() {
@@ -56,6 +71,7 @@ export function createCloud(api) {
   async function action(name) {
     if (!name.startsWith('cloud-')) return false;
     if (name === 'cloud-account') { show(); return true; }
+    if (name === 'cloud-diary') { api.closeSheet(true); api.goDiary(); return true; }
     if (!client) { api.toast('El cliente de nube no está disponible. Tu diario sigue guardado localmente.'); return true; }
     if (name === 'cloud-sync') {
       api.closeSheet(true);

@@ -4,7 +4,9 @@ Diario personal de Barre, gimnasio y piscina. HTML, CSS y JavaScript modular, si
 
 ## Estado
 
-Version 0.4.0. Cliente oficial Supabase 2.116.0 incorporado como activo local. SQL creado y prueba de aislamiento ejecutada correctamente en el proyecto acordado. Implementados acceso por correo/contrasena, guardado por cuenta, cambios pendientes, conflictos y recuperacion. Suite local: 20 pruebas, incluyendo login y recuperacion en otro contexto con respuestas simuladas. Falta la verificacion con la cuenta real de Cristina antes de declarar lista la nube o activar Pages.
+Version 0.4.1. Cliente oficial Supabase 2.116.0 incorporado como activo local. SQL creado y prueba de aislamiento ejecutada correctamente en el proyecto acordado. Implementados acceso por correo/contrasena, guardado por cuenta, cambios pendientes, conflictos y recuperacion. Suite local: 20 pruebas en Edge y 5 comprobaciones de los cambios en WebKit, incluyendo login y recuperacion en otro contexto con respuestas simuladas. Falta verificar guardado/recuperacion con la cuenta real de Cristina antes de declarar lista la nube o activar Pages.
+
+Nombre al anadir a inicio: Cri, mediante metadatos de Apple y manifiesto con rutas relativas. No incluye service worker ni garantiza arranque offline; falta comprobar la instalacion fisica en iPhone. Mis recompensas revela las dos metas pendientes mas cercanas, conservando las demas ocultas. Ajustes muestra el correo conectado; Mi cuenta distingue diario nuevo, copia recuperada, pendientes y falta de confirmacion remota, con acceso directo al diario. Iniciar sesion consulta automaticamente la nube; Sincronizar permite volver a consultarla.
 
 ## Ejecutar y probar
 
@@ -46,7 +48,7 @@ Repositorio creado: https://github.com/miguelr1881/cris-fitness-tracker, publico
 
 El codigo y la lista de regalos seran publicos. El PIN local solo oculta la edicion en la interfaz: no es autenticacion ni protege secretos. Los datos privados del diario nunca deben incluirse en el repositorio.
 
-Primera subida por la web: `index.html`, `styles.css`, `app.js`, `store.js`, `training.js`, `rewards.js`, `reward-ui.js`, `cloud.js`, `sync.js`, `cloud-config.js`, `supabase.min.js`, `SUPABASE-LICENSE.txt`, `lucide.min.js`, `manrope.ttf`, `FONT-LICENSE.txt`, `README.md`, `.gitignore`, `test_app.py` y la carpeta `supabase`. No subir respaldos JSON, datos de navegador, capturas, archivos de entorno ni carpetas temporales. La subida web no aplica `.gitignore`: seleccionar los archivos expresamente.
+Archivos publicos autorizados por la web: `index.html`, `manifest.webmanifest`, `styles.css`, `app.js`, `store.js`, `training.js`, `rewards.js`, `reward-ui.js`, `cloud.js`, `sync.js`, `cloud-config.js`, `supabase.min.js`, `SUPABASE-LICENSE.txt`, `lucide.min.js`, `manrope.ttf`, `FONT-LICENSE.txt`, `README.md`, `.gitignore`, `test_app.py` y la carpeta `supabase`. No subir respaldos JSON, datos de navegador, capturas, archivos de entorno ni carpetas temporales. La subida web no aplica `.gitignore`: seleccionar los archivos expresamente.
 
 Una vez conectada y verificada la app, configurar Settings > Pages > Deploy from a branch > main > / (root). No cambiar el sitio de otra app. El enlace final sera `https://USUARIO.github.io/cris-fitness-tracker/`.
 

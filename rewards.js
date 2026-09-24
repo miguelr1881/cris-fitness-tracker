@@ -40,7 +40,7 @@ export function activeDays(data, today) {
 export function rewardProgress(data, today) {
   const earned = new Set(data.rewardAwards.map(award => award.id));
   const pending = data.rewards.filter(reward => !earned.has(reward.id)).sort((left, right) => rewardCount(data, right, today) / right.days - rewardCount(data, left, today) / left.days);
-  return { count: pending.length ? rewardCount(data, pending[0], today) : 0, next: pending[0] || null, hidden: Math.max(0, pending.length - 1) };
+  return { count: pending.length ? rewardCount(data, pending[0], today) : 0, next: pending[0] || null, following: pending[1] || null, followingCount: pending[1] ? rewardCount(data, pending[1], today) : 0, hidden: Math.max(0, pending.length - 2) };
 }
 
 export function unlockRewards(data, today) {

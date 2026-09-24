@@ -4,6 +4,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
   let account = null;
   let conflict = false;
   let loading = false;
+  let confirmed = false;
   let generation = 0;
   let timer;
   let flight = null;
@@ -31,6 +32,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
     if (!session?.user || !canApply()) return false;
     const operation = ++generation;
     loading = true;
+    confirmed = false;
     status('Conectando cuenta');
     try {
       let row;
@@ -50,6 +52,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
       local ||= { payload: validateStore(emptyStore()), revision: 0, dirty: false, mutationId: crypto.randomUUID() };
       storage.setItem(key(session.user.id), JSON.stringify(local));
       account = { id: session.user.id, email: session.user.email || '' };
+      confirmed = !offline;
       conflict = nextConflict;
       apply(structuredClone(local.payload));
       if (offline) status('Sin conexión · copia local'); else announce();
@@ -65,7 +68,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
     const operation = generation;
     try {
       const { data, error } = await client.auth.getSession();
-      if (error || data.session?.user.id !== identity) { status('Inicia sesión para sincronizar'); return false; }
+      if (error || data.session?.user.id !== identity) { confirmed = false; status('Inicia sesión para sincronizar'); return false; }
       const snapshot = read();
       if (!snapshot?.dirty) { announce(); return true; }
       status('Sincronizando');
@@ -78,11 +81,13 @@ export function createSync({ client, storage = localStorage, apply, status = () 
       latest.revision = row.revision;
       latest.dirty = latest.mutationId !== snapshot.mutationId;
       write(latest);
+      confirmed = true;
       announce();
       if (latest.dirty) schedule();
       return true;
     } catch (error) {
       if (operation !== generation) return false;
+      confirmed = false;
       if (error.code === '40001') { conflict = true; announce(); }
       else status('Cambios pendientes · reintentar conexión');
       return false;
@@ -108,6 +113,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
       storage.setItem(`${key()}.recovery`, JSON.stringify(local));
       const chosen = preferLocal ? { ...local, revision: row?.revision || 0, dirty: true, mutationId: crypto.randomUUID() } : fromRemote(row);
       write(chosen);
+      confirmed = true;
       conflict = false;
       apply(structuredClone(chosen.payload));
       announce();
@@ -120,6 +126,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
     generation += 1;
     clearTimeout(timer);
     account = null;
+    confirmed = false;
     loading = false;
     conflict = false;
     status('Solo en este dispositivo');
@@ -130,6 +137,8 @@ export function createSync({ client, storage = localStorage, apply, status = () 
     get account() { return account; },
     get conflict() { return conflict; },
     get loading() { return loading; },
+    get confirmed() { return confirmed; },
+    get hasRemoteCopy() { return account ? read()?.revision > 0 : false; },
     get pending() { return account ? read()?.dirty : false; },
     recovery: () => account ? storage.getItem(`${key()}.recovery`) : null,
     adapter: {

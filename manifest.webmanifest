@@ -1,0 +1,11 @@
+{
+  "id": "./",
+  "name": "Cri",
+  "short_name": "Cri",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf9fc",
+  "theme_color": "#faf9fc"
+}
