@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.local.*
+backups/
+screenshots/
+test-results/
+playwright-report/
+cristina-respaldo-*.json
+cristina-backup-*.json
+*.zip
