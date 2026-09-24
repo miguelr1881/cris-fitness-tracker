@@ -355,7 +355,7 @@ class DiaryTests(unittest.TestCase):
           const migrated = model.validateStore(old);
           return {first,again,days,noFuture,preserved,rewards:migrated.rewards.length,active:migrated.activeWorkout};
         }""")
-        self.assertEqual(result, {'first':1,'again':1,'days':12,'noFuture':12,'preserved':1,'rewards':12,'active':None})
+        self.assertEqual(result, {'first':2,'again':2,'days':12,'noFuture':12,'preserved':2,'rewards':14,'active':None})
         self.page.locator('.mobile-settings').click()
         self.page.get_by_role('button', name='Editar recompensas', exact=True).click()
         self.page.locator('[name="pin"]').fill('0000')
@@ -365,6 +365,10 @@ class DiaryTests(unittest.TestCase):
         self.page.locator('[name="pin"]').fill('1318')
         self.page.get_by_role('button', name='Desbloquear', exact=True).click()
         self.page.get_by_role('button', name='Añadir recompensa', exact=True).click()
+        self.page.locator('[name="metric"]').dispatch_event('pointerdown', {'button':0})
+        self.page.locator('#sheet').dispatch_event('click', {'clientX':0,'clientY':0})
+        self.assertTrue(self.page.locator('#reward-form').is_visible())
+        self.assertFalse(self.page.locator('#discard-dialog').is_visible())
         self.page.locator('[name="name"]').fill('Una sorpresa nueva')
         self.page.get_by_role('textbox', name='Descripción del regalo', exact=True).fill('Miguel te invita a Bubble Tea de Xing Fu Tan.')
         self.page.locator('[name="days"]').fill('30')
@@ -374,6 +378,19 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(self.stored()['rewards'][0]['days'], 30)
         self.assertEqual(self.stored()['rewards'][0]['metric'], 'gym')
         self.assertEqual(self.stored()['rewards'][0]['description'], 'Miguel te invita a Bubble Tea de Xing Fu Tan.')
+        self.page.locator('[data-action="edit-reward"]').click()
+        self.page.evaluate("""() => {
+          const incoming = JSON.parse(localStorage.getItem('cristina.diary.preview.v1'));
+          incoming.settings.rest = 61;
+          dispatchEvent(new StorageEvent('storage', {key:'cristina.diary.preview.v1',newValue:JSON.stringify(incoming)}));
+        }""")
+        self.assertTrue(self.page.locator('#reward-form').is_visible())
+        self.assertEqual(self.page.locator('[name="name"]').input_value(), 'Una sorpresa nueva')
+        self.page.get_by_role('button', name='Cerrar', exact=True).click()
+        self.assertFalse(self.page.locator('#sheet').is_visible())
+        self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
+        self.page.mouse.click(1, 1)
+        self.assertFalse(self.page.locator('#sheet').is_visible())
 
     def test_training_and_rewards_geometry(self):
         self.page.evaluate("""async () => {
@@ -392,8 +409,9 @@ class DiaryTests(unittest.TestCase):
             self.page.screenshot(path=str(SCREENSHOTS / f'workout-{width}.png'), full_page=True)
             self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
             self.assertFalse(self.page.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
-            self.assertIn('Yogurt Myka', self.page.locator('.following-reward').inner_text())
-            self.assertIn('10 sorpresas por descubrir', self.page.locator('.secret-rewards').inner_text())
+            self.assertIn('Un beso', self.page.locator('.next-reward').inner_text())
+            self.assertIn('Hersheys', self.page.locator('.following-reward').inner_text())
+            self.assertIn('12 sorpresas por descubrir', self.page.locator('.secret-rewards').inner_text())
             self.page.screenshot(path=str(SCREENSHOTS / f'rewards-{width}.png'))
             self.page.get_by_role('button', name='Cerrar', exact=True).click()
 
@@ -489,6 +507,28 @@ class DiaryTests(unittest.TestCase):
         result = self.page.evaluate("""async () => {
           const model = await import('./store.js');
           const rewards = await import('./rewards.js');
+                    const assert = (value, message) => { if (!value) throw new Error(message); };
+                    const fresh = model.validateStore(model.emptyStore());
+                    assert(fresh.rewards.map(reward => reward.id).join(',') === 'first-class,cookies,mazapan,yogs,bubble-tea,myka,cinema,kimchis,hikari,riverside,nacion,pf-changs,restaurant-choice,beach', 'Requested order');
+                    const old = structuredClone(fresh);
+                    old.rewards = old.rewards.filter(reward => !['first-class','restaurant-choice'].includes(reward.id));
+                    const yogurt = old.rewards.find(reward => reward.id === 'myka');
+                    yogurt.name = 'Yogurt Yogs'; yogurt.description = 'Texto personalizado de Yogs'; yogurt.days = 2000;
+                    const myka = old.rewards.find(reward => reward.id === 'yogs');
+                    myka.name = 'Yogurt Myka'; myka.description = 'Texto personalizado de Myka'; myka.days = 5000;
+                    old.rewards.find(reward => reward.id === 'cookies').days = 9;
+                    old.rewardAwards = [{...yogurt,earnedAt:'2026-09-24',seen:true,redeemed:true}];
+                    const migratedOrder = model.validateStore(old);
+                    assert(migratedOrder.rewards[3].id === 'myka' && migratedOrder.rewards[5].id === 'yogs', 'Keep renamed yogurt identities');
+                    assert(migratedOrder.rewards[3].description === yogurt.description && migratedOrder.rewards[3].days === 2000 && migratedOrder.rewards[5].days === 5000 && migratedOrder.rewards[1].days === 9, 'Keep customized copy and goals');
+                    assert(JSON.stringify(migratedOrder.rewardAwards) === JSON.stringify(old.rewardAwards), 'Keep earned snapshots');
+                    assert(JSON.stringify(model.validateStore(migratedOrder)) === JSON.stringify(migratedOrder), 'Idempotent migration');
+                    assert(model.validateStore({...old,rewards:[]}).rewards.length === 0, 'Do not repopulate custom empty lists');
+                    fresh.activities = [{...model.makeDemo('2026-09-24').activities[0],id:'first-class-test'}];
+                    const welcomed = rewards.unlockRewards(fresh,'2026-09-24');
+                    assert(welcomed.rewardAwards.length === 1 && welcomed.rewardAwards[0].kind === 'welcome', 'One class unlocks only the kiss');
+                    assert(rewards.unlockRewards(welcomed,'2026-09-24').rewardAwards.length === 1, 'Welcome once');
+                    assert(rewards.rewardProgress(welcomed,'2026-09-24').following.id === 'mazapan', 'Next two follow configured order');
           const state = model.validateStore(model.makeDemo('2026-09-24'));
           const counts = Object.keys(rewards.METRICS).map(metric => rewards.rewardCount(state, {metric}, '2026-09-24'));
           state.rewards = ['barre','swim','gym','gymSets'].map(metric => ({id:metric,name:metric,description:'',metric,days:metric === 'swim' ? 3000 : 3,icon:'gift'}));
@@ -619,6 +659,11 @@ class DiaryTests(unittest.TestCase):
         self.page.wait_for_function('key => JSON.parse(localStorage.getItem(key)).dirty === false', arg=account_key)
         self.assertEqual(database['row']['payload']['activities'][0]['calories'], 234)
         self.assertFalse(database['row']['payload']['demo'])
+        self.page.get_by_role('heading', name='Tu primer logro', exact=True).wait_for()
+        self.assertIn('a partir de ahora vienen más regalos', self.page.locator('.celebration .reward-description').inner_text())
+        self.assertEqual(self.page.locator('[data-action="redeem-reward"]').count(), 0)
+        self.page.screenshot(path=str(SCREENSHOTS / 'first-class-kiss-402.png'))
+        self.page.get_by_role('button', name='Cerrar', exact=True).click()
         self.assertEqual(self.stored(), original)
         fresh = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce')
         try:

@@ -1,6 +1,6 @@
-import { DEFAULT_REWARDS, METRICS, migrateRewardCopy, migrateRewardGoal } from './rewards.js';
+import { DEFAULT_REWARDS, METRICS, migrateRewardCopy, migrateRewardGoal, migrateRewardOrder } from './rewards.js';
 
-export const VERSION = '0.4.1';
+export const VERSION = '0.4.2';
 export const STORAGE_KEY = 'cristina.diary.preview.v1';
 export const TYPES = {
   barre: { label: 'Barré', icon: 'sparkles', color: 'lilac' },
@@ -120,10 +120,10 @@ export function validateStore(data) {
     if (activity.workout !== undefined && (!validWorkout(activity.workout) || activity.type !== 'gym')) throw new Error('Las series del entrenamiento no son válidas.');
   }
   if (!Array.isArray(data.rewards) || data.rewards.length > 100 || !Array.isArray(data.rewardAwards) || data.rewardAwards.length > 500) throw new Error('Las recompensas no son válidas.');
-  data.rewards = data.rewards.map(migrateRewardCopy).map(migrateRewardGoal);
+  data.rewards = migrateRewardOrder(data.rewards.map(migrateRewardCopy).map(migrateRewardGoal));
   data.rewardAwards = data.rewardAwards.map(migrateRewardCopy);
   if ([...data.rewards, ...data.rewardAwards].some(reward => reward.metric !== undefined && !Object.hasOwn(METRICS, reward.metric))) throw new Error('La meta de recompensa no es válida.');
-  const validReward = reward => reward && validText(reward.id, 100) && reward.id && validText(reward.name, 150) && reward.name.trim() && validText(reward.description, 320) && Number.isInteger(reward.days) && reward.days > 0 && reward.days <= (reward.metric === 'swim' ? 1000000 : 10000) && ['cookie', 'ice-cream-bowl', 'gift', 'cup-soda', 'clapperboard', 'utensils', 'palmtree'].includes(reward.icon);
+  const validReward = reward => reward && validText(reward.id, 100) && reward.id && (reward.kind === undefined || reward.kind === 'welcome') && validText(reward.name, 150) && reward.name.trim() && validText(reward.description, 320) && Number.isInteger(reward.days) && reward.days > 0 && reward.days <= (reward.metric === 'swim' ? 1000000 : 10000) && ['heart', 'cookie', 'ice-cream-bowl', 'gift', 'cup-soda', 'clapperboard', 'utensils', 'palmtree'].includes(reward.icon);
   if (data.rewards.some(reward => !validReward(reward)) || new Set(data.rewards.map(reward => reward.id)).size !== data.rewards.length || data.rewardAwards.some(award => !validReward(award) || !validDate(award.earnedAt) || typeof award.seen !== 'boolean' || typeof award.redeemed !== 'boolean') || new Set(data.rewardAwards.map(award => award.id)).size !== data.rewardAwards.length) throw new Error('Hay una recompensa no válida en el respaldo.');
   return structuredClone(data);
 }

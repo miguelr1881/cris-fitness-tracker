@@ -2,7 +2,7 @@ const GOALS = [['barre',8],['swim',2000],['gym',6],['barre',16],['swim',5000],['
 const OLD_DAYS = [8,16,25,36,48,64,80,100,125,155,190,240];
 export const METRICS = { barre: 'clases de Barré / Heat', swim: 'metros nadados', gym: 'sesiones de gimnasio', gymSets: 'series completadas de gimnasio', days: 'días activos' };
 
-export const DEFAULT_REWARDS = [
+const LEGACY_REWARDS = [
   { id: 'cookies', name: 'Hersheys de cookies and cream', description: 'Miguel te regala un Hersheys de cookies and cream.', days: 8, icon: 'cookie' },
   { id: 'myka', name: 'Yogurt Myka', description: 'Miguel te invita a un yogurt Myka.', days: 16, icon: 'ice-cream-bowl' },
   { id: 'mazapan', name: 'Bolsita de mazapán de Giacomin', description: 'Miguel te regala una bolsita de mazapán de Giacomin.', days: 25, icon: 'gift' },
@@ -16,6 +16,33 @@ export const DEFAULT_REWARDS = [
   { id: 'pf-changs', name: 'PF Changs', description: 'Miguel te invita a almorzar o cenar en PF Changs.', days: 190, icon: 'utensils' },
   { id: 'beach', name: 'Un finde en la playa', description: 'Un fin de semana en la playa con Miguel. Un regalo para disfrutar juntos.', days: 240, icon: 'palmtree' },
 ].map((reward, index) => ({ ...reward, metric: GOALS[index][0], days: GOALS[index][1] }));
+
+const REWARD_ORDER = ['first-class', 'cookies', 'mazapan', 'yogs', 'bubble-tea', 'myka', 'cinema', 'kimchis', 'hikari', 'riverside', 'nacion', 'pf-changs', 'restaurant-choice', 'beach'];
+export const DEFAULT_REWARDS = [
+  ...LEGACY_REWARDS.map(reward => ({ ...reward, days: reward.id === 'myka' ? 5000 : reward.id === 'yogs' ? 2000 : reward.days })),
+  { id: 'first-class', kind: 'welcome', name: 'Un beso', description: 'Un beso de Miguel por tu primera clase. Esto es solo el comienzo: a partir de ahora vienen más regalos.', metric: 'barre', days: 1, icon: 'heart' },
+  { id: 'restaurant-choice', name: 'El restaurante que tú escojas', description: 'Miguel te invita a almorzar o cenar en el restaurante que tú escojas.', metric: 'gym', days: 60, icon: 'utensils' },
+].sort((left, right) => REWARD_ORDER.indexOf(left.id) - REWARD_ORDER.indexOf(right.id));
+
+export function migrateRewardOrder(rewards) {
+  if (!LEGACY_REWARDS.every(original => rewards.some(reward => reward.id === original.id)) || rewards.some(reward => reward.id === 'first-class')) return rewards;
+  const ordered = rewards.map(reward => {
+    const original = LEGACY_REWARDS.find(item => item.id === reward.id);
+    if (['myka', 'yogs'].includes(reward.id) && reward.name === original.name && reward.description === original.description && reward.metric === original.metric && reward.days === original.days) {
+      return { ...reward, days: DEFAULT_REWARDS.find(item => item.id === reward.id).days };
+    }
+    return reward;
+  });
+  for (const identity of ['first-class', 'restaurant-choice']) {
+    if (!ordered.some(reward => reward.id === identity)) ordered.push({ ...DEFAULT_REWARDS.find(reward => reward.id === identity) });
+  }
+  const rank = reward => {
+    const identity = ['myka', 'yogs'].includes(reward.id) ? (/\bmyka\b/i.test(reward.name) ? 'myka' : /\byogs\b/i.test(reward.name) ? 'yogs' : reward.id) : reward.id;
+    const index = REWARD_ORDER.indexOf(identity);
+    return index < 0 ? REWARD_ORDER.length : index;
+  };
+  return ordered.sort((left, right) => rank(left) - rank(right));
+}
 
 const LEGACY_NAMES = {
   cookies: 'Hershey’s Cookies & Cream', myka: 'Yogurt Myka', mazapan: 'Mazapán de Giacomin',
@@ -39,7 +66,7 @@ export function activeDays(data, today) {
 
 export function rewardProgress(data, today) {
   const earned = new Set(data.rewardAwards.map(award => award.id));
-  const pending = data.rewards.filter(reward => !earned.has(reward.id)).sort((left, right) => rewardCount(data, right, today) / right.days - rewardCount(data, left, today) / left.days);
+  const pending = data.rewards.filter(reward => !earned.has(reward.id));
   return { count: pending.length ? rewardCount(data, pending[0], today) : 0, next: pending[0] || null, following: pending[1] || null, followingCount: pending[1] ? rewardCount(data, pending[1], today) : 0, hidden: Math.max(0, pending.length - 2) };
 }
 
@@ -55,9 +82,9 @@ export function unlockRewards(data, today) {
 }
 
 export function migrateRewardGoal(reward) {
-  const index = DEFAULT_REWARDS.findIndex(item => item.id === reward.id);
-  if (reward.metric === undefined && index >= 0 && reward.days === OLD_DAYS[index] && reward.name === DEFAULT_REWARDS[index].name && reward.description === DEFAULT_REWARDS[index].description) {
-    return { ...reward, metric: DEFAULT_REWARDS[index].metric, days: DEFAULT_REWARDS[index].days };
+  const index = LEGACY_REWARDS.findIndex(item => item.id === reward.id);
+  if (reward.metric === undefined && index >= 0 && reward.days === OLD_DAYS[index] && reward.name === LEGACY_REWARDS[index].name && reward.description === LEGACY_REWARDS[index].description) {
+    return { ...reward, metric: LEGACY_REWARDS[index].metric, days: LEGACY_REWARDS[index].days };
   }
   return { ...reward, metric: reward.metric ?? 'days' };
 }
@@ -72,5 +99,6 @@ export function rewardCount(data, reward, today) {
 }
 
 export function rewardGoal(reward) {
+  if (reward.metric === 'barre' && reward.days === 1) return '1 clase de Barré / Heat';
   return `${reward.days} ${METRICS[reward.metric || 'days']}`;
 }

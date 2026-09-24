@@ -617,8 +617,17 @@ document.addEventListener('change', event => {
 document.addEventListener('input', event => { if (event.target.matches('[data-workout-input]')) training.change(event); });
 discardDialog.addEventListener('cancel', event => { event.preventDefault(); discardDialog.close(); afterDiscard = null; });
 sheet.addEventListener('input', event => { if (event.target.closest('form:not(#timer-custom-form)')) sheetDirty = true; });
+sheet.addEventListener('change', event => { if (event.target.closest('form:not(#timer-custom-form)')) sheetDirty = true; });
 sheet.addEventListener('cancel', event => { event.preventDefault(); closeSheet(); });
-sheet.addEventListener('click', event => { if (event.target === sheet) { const bounds = sheet.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeSheet(); } });
+let backdropPressed = false;
+const outsideSheet = event => {
+  const bounds = sheet.getBoundingClientRect();
+  return event.target === sheet && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+};
+sheet.addEventListener('pointerdown', event => { backdropPressed = event.button === 0 && outsideSheet(event); });
+sheet.addEventListener('pointercancel', () => { backdropPressed = false; });
+sheet.addEventListener('close', () => { backdropPressed = false; });
+sheet.addEventListener('click', event => { const dismiss = backdropPressed && outsideSheet(event); backdropPressed = false; if (dismiss) closeSheet(); });
 addEventListener('hashchange', () => { const next = location.hash.slice(1); if (['diary', 'routines', 'progress'].includes(next)) navigate(next); });
 addEventListener('storage', event => {
   if (event.key !== (cloud?.key() || STORAGE_KEY) || !event.newValue) return;
@@ -626,7 +635,7 @@ addEventListener('storage', event => {
     const decoded = JSON.parse(event.newValue);
     const incoming = validateStore(cloud?.account ? decoded.payload : decoded);
     if (JSON.stringify(incoming) === JSON.stringify(data)) { cloud?.renderStatus(); return; }
-    if (sheet.open && sheetDirty) {
+    if (sheet.open && (sheetDirty || sheet.querySelector('form, .reward-admin'))) {
       pendingExternalData = incoming;
       toast('El diario cambió en otra pestaña. Tu borrador sigue aquí; conserva tus notas antes de cerrar.');
       return;
