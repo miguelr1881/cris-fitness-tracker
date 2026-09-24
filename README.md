@@ -4,7 +4,7 @@ Diario personal de Barre, gimnasio y piscina. HTML, CSS y JavaScript modular, si
 
 ## Estado
 
-Version 0.6.0. Primera apertura sin datos de ejemplo: actividades, rutinas y premios ganados vacios; solo las 14 recompensas estan preparadas. En navegador movil solo aparece la guia de instalacion; al abrir Cri desde inicio, el acceso ocupa toda la pantalla y es obligatorio. Una sesion guardada se recupera sin volver a pedir acceso. Los diarios existentes no se vacian.
+Version 0.6.1. La categoria gym ahora se muestra como Gimnasio en vez de Funcional; no cambia identificadores, registros ni nombres de rutinas. Cache versionada para distribuir la correccion sin forzar recargas de sesiones abiertas. Primera apertura sin datos de ejemplo: actividades, rutinas y premios ganados vacios; solo las 14 recompensas estan preparadas. En navegador movil solo aparece la guia de instalacion; al abrir Cri desde inicio, el acceso ocupa toda la pantalla y es obligatorio. Una sesion guardada se recupera sin volver a pedir acceso. Los diarios existentes no se vacian.
 
 Cliente oficial Supabase 2.116.0 incorporado como activo local. SQL creado y prueba de aislamiento ejecutada correctamente en el proyecto acordado. Implementados acceso por correo/contrasena, guardado por cuenta, cambios pendientes, conflictos y recuperacion. Suite: 21 pruebas Edge, incluido arranque offline, guardado, recarga y reconexion con cuenta ficticia. WebKit verifica tutorial, acceso obligatorio y recompensas; su ejecutable automatizado falla internamente al recargar offline. Pendientes la prueba fisica en iPhone y el guardado/recuperacion controlados con la cuenta real. Pages ya esta activo.
 

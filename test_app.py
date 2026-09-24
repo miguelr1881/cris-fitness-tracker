@@ -68,6 +68,7 @@ class DiaryTests(unittest.TestCase):
     def test_domain_edit_and_summary(self):
         result = self.page.evaluate("""async () => {
           const model = await import('./store.js');
+                    if (model.TYPES.gym.label !== 'Gimnasio') throw Error('Gym label must be Gimnasio');
           let state = model.makeDemo('2026-09-24');
           const before = model.summarize(state, 'month', '2026-09-24');
           const activity = { ...state.activities[0], calories: 999, date: '2026-08-24' };
