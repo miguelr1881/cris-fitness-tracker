@@ -1,4 +1,3 @@
-import math
 import os
 from pathlib import Path
 
@@ -11,21 +10,10 @@ PAPER = '#faf9fc'
 
 
 def brand_icon(size=1024):
-    image = Image.new('RGB', (size, size))
+    image = Image.new('RGB', (size, size), '#e8dff1')
     drawing = ImageDraw.Draw(image)
-    for row in range(size):
-        ratio = row / (size - 1)
-        color = tuple(round(start + (end - start) * ratio) for start, end in zip((157, 124, 179), (108, 75, 138)))
-        drawing.line((0, row, size, row), fill=color)
-    font = ImageFont.truetype(str(FONTS / 'georgiai.ttf'), round(size * .48))
-    drawing.text((size * .46, size * .47), 'cri', font=font, fill='#fffafd', anchor='mm', stroke_width=0)
-    heart = []
-    for index in range(128):
-        angle = index * 2 * math.pi / 128
-        horizontal = 16 * math.sin(angle) ** 3
-        vertical = 13 * math.cos(angle) - 5 * math.cos(2 * angle) - 2 * math.cos(3 * angle) - math.cos(4 * angle)
-        heart.append((size * .738 + horizontal * size * .0034, size * .308 - vertical * size * .0034))
-    drawing.polygon(heart, fill='#f3c9d5')
+    font = ImageFont.truetype(str(FONTS / 'georgia.ttf'), round(size * .75))
+    drawing.text((size * .5, size * .703), 'c', font=font, fill='#6a5089', anchor='ms')
     return image
 
 

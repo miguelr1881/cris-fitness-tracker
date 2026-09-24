@@ -2,6 +2,29 @@
   const screen = document.querySelector('#launch-screen');
   const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const ios = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const installOnly = () => !installed() && (ios() || /Android/i.test(navigator.userAgent));
+  const entry = document.createElement('section');
+  entry.id = 'entry-screen';
+  entry.hidden = true;
+  entry.tabIndex = -1;
+  document.body.append(entry);
+  const offlineReady = 'serviceWorker' in navigator
+    ? navigator.serviceWorker.register('./sw.js', {scope:'./', updateViaCache:'none'}).then(() => navigator.serviceWorker.ready).catch(() => null)
+    : Promise.resolve(null);
+  function gate(content, kind) {
+    entry.innerHTML = `<div class="entry-content">${content}</div>`;
+    entry.dataset.kind = kind;
+    entry.hidden = false;
+    document.querySelector('.app-shell').inert = true;
+    document.body.classList.add('entry-locked');
+  }
+  function release() {
+    if (installOnly()) return;
+    entry.hidden = true;
+    entry.replaceChildren();
+    document.querySelector('.app-shell').inert = false;
+    document.body.classList.remove('entry-locked');
+  }
   let prompt = null;
   let ready = false;
   const deadline = setTimeout(() => {
@@ -29,6 +52,14 @@
   globalThis.criLaunch = {
     guide,
     installed,
+    offlineReady,
+    installOnly,
+    gate,
+    release,
+    get locked() { return !entry.hidden; },
+    tutorial(icon) {
+      gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="Cri"><h1>Cri</h1></header>${guide(icon)}`, 'install');
+    },
     async install() {
       if (!prompt) return false;
       const current = prompt;
@@ -46,7 +77,7 @@
         animation.cancel();
       }
       screen.hidden = true;
-      document.querySelector('.app-shell').inert = false;
+      document.querySelector('.app-shell').inert = !entry.hidden;
       document.body.classList.remove('launching');
     },
     shouldAskLogin() {

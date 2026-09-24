@@ -3,6 +3,7 @@ import base64
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from playwright.sync_api import sync_playwright
 
@@ -24,7 +25,7 @@ class DiaryTests(unittest.TestCase):
         cls.playwright.stop()
 
     def setUp(self):
-        self.context = self.browser.new_context(viewport={"width": 402, "height": 874}, device_scale_factor=1, reduced_motion="reduce")
+        self.context = self.browser.new_context(viewport={"width": 402, "height": 874}, device_scale_factor=1, reduced_motion="reduce", service_workers='block')
         self.page = self.context.new_page()
         self.errors = []
         self.dialogs = []
@@ -412,7 +413,7 @@ class DiaryTests(unittest.TestCase):
             self.page.screenshot(path=str(SCREENSHOTS / f'workout-{width}.png'), full_page=True)
             self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
             self.assertFalse(self.page.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
-            self.assertIn('Un beso', self.page.locator('.next-reward').inner_text())
+            self.assertIn('¡Felicidades!', self.page.locator('.next-reward').inner_text())
             self.assertIn('Hersheys', self.page.locator('.following-reward').inner_text())
             self.assertIn('12 sorpresas por descubrir', self.page.locator('.secret-rewards').inner_text())
             self.page.screenshot(path=str(SCREENSHOTS / f'rewards-{width}.png'))
@@ -618,12 +619,15 @@ class DiaryTests(unittest.TestCase):
     def test_cloud_login_sync_restore_and_logout(self):
         account_id = '11111111-1111-4111-8111-111111111111'
         account_key = f'cristina.diary.account.v1.{account_id}'
-        database = {'row': None}
+        database = {'row': None, 'offline': False}
         claims = {'sub': account_id, 'role': 'authenticated', 'exp': 4102444800}
         encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip('=')
         token = f'eyJhbGciOiJIUzI1NiJ9.{encoded}.fixture'
         user = {'id':account_id,'aud':'authenticated','role':'authenticated','email':'cristina@example.test','created_at':'2026-09-24T00:00:00Z','app_metadata':{},'user_metadata':{}}
         def respond(route):
+            if database['offline']:
+                route.abort()
+                return
             request = route.request
             headers = {'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*'}
             if request.method == 'OPTIONS':
@@ -665,6 +669,7 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(database['row']['payload']['activities'][0]['calories'], 234)
         self.assertFalse(database['row']['payload']['demo'])
         self.page.get_by_role('heading', name='Tu primer logro', exact=True).wait_for()
+        self.assertEqual(self.page.locator('.celebration-congrats').inner_text(), '¡Felicidades!')
         self.assertIn('a partir de ahora vienen más regalos', self.page.locator('.celebration .reward-description').inner_text())
         self.assertEqual(self.page.locator('[data-action="redeem-reward"]').count(), 0)
         self.page.screenshot(path=str(SCREENSHOTS / 'first-class-kiss-402.png'))
@@ -672,6 +677,22 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(self.stored(), original)
         fresh = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce')
         try:
+            def mock_fetch(source, request):
+                reply = {}
+                respond(SimpleNamespace(request=SimpleNamespace(url=request['url'], method=request['method'], post_data_json=json.loads(request['body']) if request['body'] else None), fulfill=lambda **values: reply.update(values), abort=lambda: reply.update(aborted=True)))
+                return reply
+            fresh.expose_binding('crisMockFetch', mock_fetch)
+            fresh.add_init_script("""(() => {
+              const originalFetch = globalThis.fetch.bind(globalThis);
+              globalThis.fetch = async (input, options) => {
+                const request = new Request(input, options);
+                if (!request.url.startsWith('https://izneyvdlthcwalpdzton.supabase.co/')) return originalFetch(input, options);
+                const response = await globalThis.crisMockFetch({url:request.url,method:request.method,body:await request.text()});
+                if (response.aborted) throw new TypeError('Fixture offline');
+                return new Response(JSON.stringify(response.json), {status:response.status || 200,headers:{'Content-Type':'application/json',...response.headers}});
+              };
+            })();""")
+            fresh.add_init_script("Object.defineProperty(navigator, 'standalone', {get:() => true});")
             fresh.route('https://izneyvdlthcwalpdzton.supabase.co/**', respond)
             blank = {'format':'cristina-diary','version':1,'demo':False,'settings':{'unit':'kg','rest':45},'activities':[],'routines':[]}
             fresh.add_init_script("localStorage.setItem('cristina.diary.preview.v1', " + json.dumps(json.dumps(blank)) + ");")
@@ -694,6 +715,40 @@ class DiaryTests(unittest.TestCase):
             other.locator('#launch-screen').wait_for(state='hidden')
             self.assertEqual(other.locator('#cloud-login-form').count(), 0)
             self.assertIn('Guardado en la nube', other.locator('#data-label').inner_text())
+            other.evaluate('async () => { await navigator.serviceWorker.ready; }')
+            other.wait_for_function('!!navigator.serviceWorker.controller')
+            cached = other.evaluate('async () => (await Promise.all((await caches.keys()).map(async name => (await (await caches.open(name)).keys()).map(request => request.url)))).flat()')
+            self.assertTrue(cached)
+            self.assertTrue(all(address.startswith(URL) for address in cached))
+            database['offline'] = True
+            fresh.set_offline(True)
+            other.reload()
+            other.locator('#launch-screen').wait_for(state='hidden')
+            self.assertEqual(other.locator('#cloud-login-form').count(), 0)
+            self.assertIn('Sin conexión', other.locator('#data-label').inner_text())
+            other.set_viewport_size({'width':402,'height':874})
+            other.locator('.quick-action[data-type="barre"]').click()
+            other.locator('[name="calories"]').fill('456')
+            other.get_by_role('button', name='Guardar actividad', exact=True).click()
+            other.wait_for_function("document.querySelector('#data-label').textContent.includes('reintentar')")
+            other.reload()
+            other.locator('#launch-screen').wait_for(state='hidden')
+            pending_copy = other.evaluate('key => JSON.parse(localStorage.getItem(key))', account_key)
+            self.assertTrue(pending_copy['dirty'])
+            self.assertEqual(pending_copy['payload']['activities'][-1]['calories'], 456)
+            database['offline'] = False
+            fresh.set_offline(False)
+            other.wait_for_function('key => JSON.parse(localStorage.getItem(key)).dirty === false', arg=account_key)
+            self.assertEqual(database['row']['payload']['activities'][-1]['calories'], 456)
+            other.locator('.mobile-settings').click()
+            other.get_by_role('button', name='Mi cuenta', exact=True).click()
+            other.get_by_role('button', name='Cerrar sesión', exact=True).click()
+            other.locator('#entry-screen #cloud-login-form').wait_for()
+            self.assertIsNone(other.evaluate("localStorage.getItem('cristina.last-account.v1')"))
+            fresh.set_offline(True)
+            other.reload()
+            other.locator('#entry-screen #cloud-login-form').wait_for()
+            self.assertTrue(other.locator('.app-shell').evaluate('element => element.inert'))
         finally:
             fresh.close()
         self.page.locator('.mobile-settings').click()
@@ -707,7 +762,7 @@ class DiaryTests(unittest.TestCase):
 
     def test_first_open_install_and_loading(self):
         for standalone in [False, True]:
-            context = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce', user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')
+            context = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce', service_workers='block', user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')
             try:
                 if standalone:
                     context.add_init_script("Object.defineProperty(navigator, 'standalone', {get:() => true});")
@@ -729,16 +784,18 @@ class DiaryTests(unittest.TestCase):
                     self.assertTrue(visit.locator('#launch-retry').is_visible())
                     self.assertIn('Comprueba tu conexión', visit.locator('#launch-status').inner_text())
                 pending[0].continue_()
-                visit.locator('#cloud-login-form').wait_for()
+                visit.locator('#launch-screen').wait_for(state='hidden')
+                visit.locator('#entry-screen').wait_for()
                 self.assertFalse(visit.locator('#launch-screen').is_visible())
-                self.assertFalse(visit.locator('.app-shell').evaluate('element => element.inert'))
+                self.assertTrue(visit.locator('.app-shell').evaluate('element => element.inert'))
+                self.assertEqual(visit.locator('#cloud-login-form').count(), 1 if standalone else 0)
                 self.assertEqual(visit.locator('.install-guide').count(), 0 if standalone else 1)
                 if not standalone:
                     self.assertEqual(visit.locator('.install-guide li').count(), 3)
-                    for width, height in [(320,740),(402,874),(1440,960)]:
-                        visit.set_viewport_size({'width':width,'height':height})
-                        self.assertFalse(visit.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
-                        visit.screenshot(path=str(SCREENSHOTS / f'first-login-{width}.png'))
+                for width, height in [(320,740),(402,874),(1440,960)]:
+                    visit.set_viewport_size({'width':width,'height':height})
+                    self.assertFalse(visit.evaluate('document.documentElement.scrollWidth > innerWidth'))
+                    visit.screenshot(path=str(SCREENSHOTS / f'entry-{standalone}-{width}.png'))
                 state = visit.evaluate("async () => (await import('./store.js')).loadStore()")
                 self.assertEqual((state['demo'], len(state['activities']), len(state['routines']), len(state['rewardAwards']), len(state['rewards'])), (False,0,0,0,14))
                 manifest = visit.request.get(URL + 'manifest.webmanifest').json()
@@ -749,11 +806,14 @@ class DiaryTests(unittest.TestCase):
                     self.assertEqual(dimensions, [expected, expected])
                 self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png')
                 self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
-                visit.get_by_role('button', name='Cerrar', exact=True).click()
+                self.assertEqual(visit.get_by_role('button', name='Cerrar', exact=True).count(), 0)
+                visit.keyboard.press('Escape')
+                self.assertTrue(visit.locator('#entry-screen').is_visible())
                 self.assertEqual(visit.locator('.routine-card,.activity-row').count(), 0)
                 visit.reload()
                 visit.locator('#launch-screen').wait_for(state='hidden')
                 self.assertFalse(visit.locator('#sheet').is_visible())
+                self.assertTrue(visit.locator('#entry-screen').is_visible())
             finally:
                 context.close()
 

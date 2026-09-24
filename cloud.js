@@ -3,11 +3,13 @@ import { CLOUD_CONFIG } from './cloud-config.js';
 import { loadStore, validateStore } from './store.js';
 
 export function createCloud(api) {
-  const client = globalThis.supabase?.createClient(CLOUD_CONFIG.url, CLOUD_CONFIG.publishableKey, {
+  const client = !globalThis.criLaunch?.installOnly() && globalThis.supabase?.createClient(CLOUD_CONFIG.url, CLOUD_CONFIG.publishableKey, {
     auth: { storageKey: 'cristina.auth.v1', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   });
   let label = 'Solo en este dispositivo';
   let loginBusy = false;
+  let signedOut = false;
+  const rememberedAccount = 'cristina.last-account.v1';
   const sync = client && createSync({ client, apply: api.apply, canApply: api.canSwitch, status: value => { label = value; renderStatus(); } });
 
   function accountMessage() {
@@ -20,6 +22,9 @@ export function createCloud(api) {
   }
 
   function renderStatus() {
+    if (sync?.account && !signedOut) {
+      try { localStorage.setItem(rememberedAccount, JSON.stringify(sync.account)); } catch {}
+    }
     if (sync?.account && sync.pending && label === 'Guardado en la nube') label = 'Cambios pendientes';
     const top = document.querySelector('.local-status');
     if (top) top.textContent = label;
@@ -34,7 +39,14 @@ export function createCloud(api) {
   }
 
   function show() {
-    const account = sync?.account;
+    const account = signedOut ? null : sync?.account;
+    if (globalThis.criLaunch?.installOnly()) { globalThis.criLaunch.tutorial(api.icon); api.icons(); return; }
+    if (!account && globalThis.criLaunch?.installed()) {
+      globalThis.criLaunch.gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="Cri"><h1>Bienvenida a Cri</h1></header><p class="muted-copy">Inicia sesión para abrir tu diario.</p><form id="cloud-login-form"><label class="field"><span>Correo</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label><label class="field"><span>Contraseña</span><input name="password" type="password" autocomplete="current-password" required></label><p id="cloud-error" role="alert">${navigator.onLine ? '' : 'Necesitas conexión para iniciar sesión por primera vez.'}</p><button class="primary-button" type="submit" ${!client ? 'disabled' : ''}>${api.icon('log-in')}Iniciar sesión</button></form>`, 'login');
+      api.icons();
+      return;
+    }
+    globalThis.criLaunch?.release();
     api.openSheet('Mi cuenta', `<div class="sheet-content"><p id="cloud-status" role="status">${api.escape(label)}</p>${account ? `<p class="cloud-email">${api.escape(account.email)}</p><div class="cloud-actions"><button class="secondary-button" data-action="cloud-sync">${api.icon('cloud-upload')}Sincronizar</button><button class="text-button" data-action="cloud-link">${api.icon('folder-input')}Vincular diario local</button><button class="text-button" data-action="cloud-logout">${api.icon('log-out')}Cerrar sesión</button></div><section id="cloud-conflict" ${sync.conflict ? '' : 'hidden'}><h3>Hay dos versiones del diario</h3><p class="muted-copy">Elige cuál conservar. La copia local anterior quedará disponible para descargar.</p><div class="cloud-actions"><button class="secondary-button" data-action="cloud-keep-local">Conservar este dispositivo</button><button class="secondary-button" data-action="cloud-use-remote">Usar copia de nube</button></div></section>${sync.recovery() ? '<button class="text-button" data-action="cloud-recovery">Descargar copia anterior</button>' : ''}` : `<form id="cloud-login-form"><label class="field"><span>Correo</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label><label class="field"><span>Contraseña</span><input name="password" type="password" autocomplete="current-password" required></label><p id="cloud-error" role="alert"></p><button class="primary-button" type="submit" ${!client ? 'disabled' : ''}>${api.icon('log-in')}Iniciar sesión</button></form><button class="text-button" data-action="cloud-resume">Abrir cuenta ya iniciada</button>`}</div>`);
     if (account) {
       document.querySelector('.cloud-email').insertAdjacentHTML('afterend', `<p id="cloud-guidance" class="account-guidance" aria-live="polite">${api.escape(accountMessage())}</p><button class="primary-button cloud-continue" data-action="cloud-diary">${api.icon('arrow-right')}Ir a mi diario</button>`);
@@ -60,13 +72,22 @@ export function createCloud(api) {
     button.disabled = true;
     const fields = new FormData(form);
     try {
-      if (api.getData().activeWorkout) throw new Error('Termina el entrenamiento antes de iniciar sesión.');
+      if (api.getData().activeWorkout && !signedOut) throw new Error('Termina el entrenamiento antes de iniciar sesión.');
       const { data, error } = await client.auth.signInWithPassword({ email: fields.get('email').trim(), password: fields.get('password') });
       form.elements.password.value = '';
       if (error) throw new Error('No se pudo iniciar sesión. Revisa el correo, la contraseña y la conexión.');
+      if (signedOut && sync.account) {
+        if (sync.account.id !== data.session.user.id) throw new Error('Vuelve a entrar con la misma cuenta para conservar la edición en curso.');
+        signedOut = false;
+        globalThis.criLaunch?.release();
+        renderStatus();
+        return;
+      }
+      signedOut = false;
       if (!form.isConnected) { api.toast('Cuenta iniciada. Ábrela desde Ajustes cuando termines la edición.'); return; }
       api.closeSheet(true);
-      await sync.activate(data.session);
+      const activated = await sync.activate(data.session);
+      if (!activated && globalThis.criLaunch?.installed()) { show(); document.querySelector('#cloud-error').textContent = 'No se pudo abrir el diario. Revisa la conexión e inténtalo de nuevo.'; return; }
       if (api.canSwitch()) show();
     } catch (error) { if (form.isConnected) form.querySelector('#cloud-error').textContent = error.message; }
     finally { loginBusy = false; if (button.isConnected) button.disabled = false; }
@@ -74,8 +95,9 @@ export function createCloud(api) {
 
   async function action(name) {
     if (!name.startsWith('cloud-')) return false;
+    if (globalThis.criLaunch?.installOnly()) return true;
     if (name === 'cloud-account') { show(); return true; }
-    if (name === 'cloud-diary') { api.closeSheet(true); api.goDiary(); return true; }
+    if (name === 'cloud-diary') { if (globalThis.criLaunch?.installed() && !sync?.account) return true; api.closeSheet(true); api.goDiary(); return true; }
     if (!client) { api.toast('El cliente de nube no está disponible. Tu diario sigue guardado localmente.'); return true; }
     if (name === 'cloud-sync') {
       api.closeSheet(true);
@@ -88,6 +110,7 @@ export function createCloud(api) {
       if (api.getData().activeWorkout) { api.toast('Termina el entrenamiento antes de cerrar sesión.'); return true; }
       const { error } = await client.auth.signOut({ scope: 'local' });
       if (error) { api.toast('No se pudo cerrar sesión. Inténtalo de nuevo.'); return true; }
+      try { localStorage.removeItem(rememberedAccount); } catch {}
       api.closeSheet(true);
       sync.detach();
       api.apply(loadStore());
@@ -117,11 +140,21 @@ export function createCloud(api) {
   async function start() {
     if (!client) { label = 'Nube no disponible · guardado local'; renderStatus(); return; }
     try {
-      const { data } = await client.auth.getSession();
-      if (data.session) await sync.activate(data.session);
+      if (!navigator.onLine) {
+        const identity = JSON.parse(localStorage.getItem(rememberedAccount) || 'null');
+        sync.resumeLocal(identity);
+      } else {
+        const { data } = await client.auth.getSession();
+        if (data.session) await sync.activate(data.session);
+      }
     } catch { label = 'No se pudo abrir la cuenta'; renderStatus(); }
     client.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' && sync.account) { label = 'Sesión cerrada · copia local de la cuenta'; renderStatus(); }
+      if (event === 'SIGNED_OUT' && sync.account) {
+        signedOut = true;
+        try { localStorage.removeItem(rememberedAccount); } catch {}
+        label = 'Sesión cerrada · copia local de la cuenta'; renderStatus();
+        if (globalThis.criLaunch?.installed()) show();
+      }
       else if (session && sync.account && session.user.id !== sync.account.id) { label = 'Cuenta distinta · abre la cuenta desde Ajustes'; renderStatus(); }
     });
     addEventListener('online', () => void sync.flush());
@@ -131,7 +164,7 @@ export function createCloud(api) {
   return { action, start, renderStatus,
     submit: event => { if (event.target.id !== 'cloud-login-form') return false; event.preventDefault(); void login(event.target); return true; },
     get storage() { return sync?.account ? sync.adapter : localStorage; },
-    get account() { return sync?.account; },
+    get account() { return signedOut ? null : sync?.account; },
     get loading() { return sync?.loading; },
     get label() { return label; },
     key: () => sync?.account ? sync.key() : null,

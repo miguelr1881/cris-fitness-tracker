@@ -122,6 +122,23 @@ export function createSync({ client, storage = localStorage, apply, status = () 
     } catch { status('No se pudo resolver. Las copias siguen intactas.'); return false; }
   }
 
+  function resumeLocal(identity) {
+    if (!identity || typeof identity.id !== 'string' || typeof identity.email !== 'string' || !canApply()) return false;
+    try {
+      const saved = read(identity.id);
+      if (!saved) return false;
+      generation += 1;
+      clearTimeout(timer);
+      account = {id:identity.id, email:identity.email};
+      confirmed = false;
+      conflict = false;
+      loading = false;
+      apply(structuredClone(saved.payload));
+      status(saved.dirty ? 'Sin conexión · cambios pendientes' : 'Sin conexión · copia local');
+      return true;
+    } catch { return false; }
+  }
+
   function detach() {
     generation += 1;
     clearTimeout(timer);
@@ -133,7 +150,7 @@ export function createSync({ client, storage = localStorage, apply, status = () 
   }
 
   return {
-    activate, flush, resolve, detach, key,
+    activate, flush, resolve, resumeLocal, detach, key,
     get account() { return account; },
     get conflict() { return conflict; },
     get loading() { return loading; },

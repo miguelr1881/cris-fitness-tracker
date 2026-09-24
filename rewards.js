@@ -20,7 +20,7 @@ const LEGACY_REWARDS = [
 const REWARD_ORDER = ['first-class', 'cookies', 'mazapan', 'yogs', 'bubble-tea', 'myka', 'cinema', 'kimchis', 'hikari', 'riverside', 'nacion', 'pf-changs', 'restaurant-choice', 'beach'];
 export const DEFAULT_REWARDS = [
   ...LEGACY_REWARDS.map(reward => ({ ...reward, days: reward.id === 'myka' ? 5000 : reward.id === 'yogs' ? 2000 : reward.days })),
-  { id: 'first-class', kind: 'welcome', name: 'Un beso', description: 'Un beso de Miguel por tu primera clase. Esto es solo el comienzo: a partir de ahora vienen más regalos.', metric: 'barre', days: 1, icon: 'heart' },
+  { id: 'first-class', kind: 'welcome', name: '¡Felicidades!', description: 'Esto es solo el comienzo: a partir de ahora vienen más regalos.', metric: 'barre', days: 1, icon: 'heart' },
   { id: 'restaurant-choice', name: 'El restaurante que tú escojas', description: 'Miguel te invita a almorzar o cenar en el restaurante que tú escojas.', metric: 'gym', days: 60, icon: 'utensils' },
 ].sort((left, right) => REWARD_ORDER.indexOf(left.id) - REWARD_ORDER.indexOf(right.id));
 
@@ -53,6 +53,9 @@ const LEGACY_NAMES = {
 
 export function migrateRewardCopy(reward) {
   if (!reward || typeof reward !== 'object') return reward;
+  if (reward.id === 'first-class' && !reward.earnedAt && reward.name === 'Un beso' && reward.description === 'Un beso de Miguel por tu primera clase. Esto es solo el comienzo: a partir de ahora vienen más regalos.') {
+    return { ...reward, name:'¡Felicidades!', description:'Esto es solo el comienzo: a partir de ahora vienen más regalos.' };
+  }
   const original = DEFAULT_REWARDS.find(item => item.id === reward.id);
   if (reward.description === undefined && original && reward.name === LEGACY_NAMES[reward.id]) {
     return { ...reward, name: original.name, description: original.description };

@@ -57,6 +57,7 @@ function nullable(value) { return String(value ?? '').trim() === '' ? null : Num
 
 function commit(next) {
   try {
+    if (globalThis.criLaunch?.locked) throw new Error('Inicia sesión para guardar en tu diario.');
     if (blocked) throw new Error('El almacenamiento necesita recuperarse antes de guardar.');
     if (pendingExternalData) throw new Error('Hay cambios de otra pestaña. Conserva tus notas y cierra esta edición antes de continuar.');
     if (cloud?.loading) throw new Error('Espera a que termine la conexión de cuenta.');
@@ -659,7 +660,7 @@ function stopWorkoutTimer() {
 }
 
 function showRewardNotification() {
-  if (sheet.open || blocked || data.activeWorkout) return;
+  if (sheet.open || blocked || data.activeWorkout || globalThis.criLaunch?.locked) return;
   const award = data.rewardAwards.find(item => !item.seen);
   if (!award) return;
   rewardsUI.celebrate(award);
@@ -683,8 +684,11 @@ if (!blocked) {
 }
 render();
 const launchArtwork = Promise.allSettled([document.fonts.ready, document.querySelector('.launch-brand img').decode()]);
-void Promise.allSettled([cloud.start(), Promise.race([launchArtwork, new Promise(resolve => setTimeout(resolve, 2500))])]).then(async () => {
+void Promise.allSettled([globalThis.criLaunch?.installOnly() ? Promise.resolve() : cloud.start(), Promise.race([launchArtwork, new Promise(resolve => setTimeout(resolve, 2500))])]).then(async () => {
+  if (globalThis.criLaunch?.installOnly()) { globalThis.criLaunch.tutorial(icon); icons(); }
+  else if (globalThis.criLaunch?.installed() && !cloud.account) await cloud.action('cloud-account');
   await globalThis.criLaunch?.finish();
+  if (globalThis.criLaunch?.locked) return;
   if (!cloud.account && !blocked && !sheet.open && !data.activeWorkout && !timer.running && globalThis.criLaunch?.shouldAskLogin()) void cloud.action('cloud-account');
   else showRewardNotification();
 });
