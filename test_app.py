@@ -70,6 +70,11 @@ class DiaryTests(unittest.TestCase):
           const model = await import('./store.js');
                     if (model.TYPES.gym.label !== 'Gimnasio') throw Error('Gym label must be Gimnasio');
           let state = model.makeDemo('2026-09-24');
+          const rewards = await import('./rewards.js');
+          if (model.TYPES.heat.label !== 'Barré HIT') throw Error('HIT label missing');
+          const legacy = model.validateStore({...state, activities:state.activities.filter(activity => activity.type === 'heat')});
+          if (rewards.rewardCount(legacy, {metric:'barre'}, '2026-09-24') !== 2) throw Error('Legacy HIT records lost');
+          if (rewards.rewardGoal({metric:'barre', days:1}) !== '1 clase de Barré / HIT' || rewards.rewardGoal({metric:'barre', days:8}) !== '8 clases de Barré / HIT') throw Error('HIT goal labels missing');
           const before = model.summarize(state, 'month', '2026-09-24');
           const activity = { ...state.activities[0], calories: 999, date: '2026-08-24' };
           state = model.upsertActivity(state, activity);

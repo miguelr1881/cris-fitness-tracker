@@ -1,5 +1,5 @@
 const SCOPE = new URL(self.registration.scope);
-const CACHE = `cri-shell-0.6.1-${SCOPE.pathname}`;
+const CACHE = `cri-shell-0.6.2-${SCOPE.pathname}`;
 const ASSETS = ['index.html', 'styles.css', 'manifest.webmanifest', 'launch.js', 'app.js', 'store.js', 'training.js', 'rewards.js', 'reward-ui.js', 'cloud.js', 'cloud-config.js', 'sync.js', 'lucide.min.js', 'supabase.min.js', 'manrope.ttf', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'launch-1206x2622.png', 'launch-2622x1206.png', 'launch-1320x2868.png', 'launch-2868x1320.png'];
 const ALLOWED = new Set(ASSETS.map(path => new URL(path, SCOPE).href));
 

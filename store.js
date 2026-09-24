@@ -1,10 +1,10 @@
 import { DEFAULT_REWARDS, METRICS, migrateRewardCopy, migrateRewardGoal, migrateRewardOrder } from './rewards.js';
 
-export const VERSION = '0.6.1';
+export const VERSION = '0.6.2';
 export const STORAGE_KEY = 'cristina.diary.preview.v1';
 export const TYPES = {
   barre: { label: 'Barré', icon: 'sparkles', color: 'lilac' },
-  heat: { label: 'Barré Heat', icon: 'flame', color: 'rose' },
+  heat: { label: 'Barré HIT', icon: 'flame', color: 'rose' },
   gym: { label: 'Gimnasio', icon: 'dumbbell', color: 'sage' },
   cardio: { label: 'Cardio', icon: 'heart-pulse', color: 'peach' },
   swim: { label: 'Piscina', icon: 'waves', color: 'blue' },
