@@ -32,10 +32,13 @@ class DiaryTests(unittest.TestCase):
         self.page.on("dialog", self.handle_dialog)
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
         self.page.goto(URL)
+        self.page.locator('#launch-screen').wait_for(state='hidden')
+        self.page.locator('#cloud-login-form').wait_for()
+        self.page.get_by_role('button', name='Cerrar', exact=True).click()
         self.page.wait_for_selector(".calendar-day")
         self.page.evaluate("""async () => {
             const model = await import('./store.js');
-            const state = model.loadStore(); state.rewards = []; state.rewardAwards = [];
+            const state = model.validateStore(model.makeDemo()); state.rewards = []; state.rewardAwards = [];
             model.saveStore(state);
         }""")
         self.page.reload()
@@ -508,6 +511,8 @@ class DiaryTests(unittest.TestCase):
           const model = await import('./store.js');
           const rewards = await import('./rewards.js');
                     const assert = (value, message) => { if (!value) throw new Error(message); };
+                      const firstVisit = model.loadStore({getItem:() => null});
+                      assert(!firstVisit.demo && firstVisit.activities.length === 0 && firstVisit.routines.length === 0 && firstVisit.rewardAwards.length === 0 && firstVisit.rewards.length === 14, 'Fresh diary empty except rewards');
                     const fresh = model.validateStore(model.emptyStore());
                     assert(fresh.rewards.map(reward => reward.id).join(',') === 'first-class,cookies,mazapan,yogs,bubble-tea,myka,cinema,kimchis,hikari,riverside,nacion,pf-changs,restaurant-choice,beach', 'Requested order');
                     const old = structuredClone(fresh);
@@ -672,8 +677,7 @@ class DiaryTests(unittest.TestCase):
             fresh.add_init_script("localStorage.setItem('cristina.diary.preview.v1', " + json.dumps(json.dumps(blank)) + ");")
             other = fresh.new_page()
             other.goto(URL)
-            other.locator('.mobile-settings').click()
-            other.get_by_role('button', name='Mi cuenta', exact=True).click()
+            other.locator('#cloud-login-form').wait_for()
             other.get_by_role('textbox', name='Correo', exact=True).fill('cristina@example.test')
             other.get_by_role('textbox', name='Contraseña', exact=True).fill('fixture-only')
             other.get_by_role('button', name='Iniciar sesión', exact=True).click()
@@ -686,6 +690,10 @@ class DiaryTests(unittest.TestCase):
                 other.set_viewport_size({'width':width,'height':height})
                 self.assertFalse(other.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
                 other.screenshot(path=str(SCREENSHOTS / f'cloud-account-{width}.png'))
+            other.reload()
+            other.locator('#launch-screen').wait_for(state='hidden')
+            self.assertEqual(other.locator('#cloud-login-form').count(), 0)
+            self.assertIn('Guardado en la nube', other.locator('#data-label').inner_text())
         finally:
             fresh.close()
         self.page.locator('.mobile-settings').click()
@@ -695,6 +703,59 @@ class DiaryTests(unittest.TestCase):
         self.page.wait_for_function("!localStorage.getItem('cristina.auth.v1')")
         self.assertEqual(self.stored(), original)
         self.assertIsNotNone(self.page.evaluate('key => localStorage.getItem(key)', account_key))
+
+
+    def test_first_open_install_and_loading(self):
+        for standalone in [False, True]:
+            context = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce', user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')
+            try:
+                if standalone:
+                    context.add_init_script("Object.defineProperty(navigator, 'standalone', {get:() => true});")
+                visit = context.new_page()
+                if standalone:
+                    visit.clock.install()
+                pending = []
+                visit.route('**/app.js', lambda route: pending.append(route), times=1)
+                visit.goto(URL, wait_until='commit')
+                visit.locator('#launch-screen').wait_for()
+                self.assertTrue(visit.locator('.app-shell').evaluate('element => element.inert'))
+                visit.locator('.launch-brand img').evaluate('image => image.decode()')
+                if self.browser.browser_type.name != 'webkit':
+                    visit.screenshot(path=str(SCREENSHOTS / f'launch-{standalone}-402.png'))
+                self.assertEqual(len(pending), 1)
+                if standalone:
+                    visit.wait_for_function('!!globalThis.criLaunch')
+                    visit.clock.fast_forward(31000)
+                    self.assertTrue(visit.locator('#launch-retry').is_visible())
+                    self.assertIn('Comprueba tu conexión', visit.locator('#launch-status').inner_text())
+                pending[0].continue_()
+                visit.locator('#cloud-login-form').wait_for()
+                self.assertFalse(visit.locator('#launch-screen').is_visible())
+                self.assertFalse(visit.locator('.app-shell').evaluate('element => element.inert'))
+                self.assertEqual(visit.locator('.install-guide').count(), 0 if standalone else 1)
+                if not standalone:
+                    self.assertEqual(visit.locator('.install-guide li').count(), 3)
+                    for width, height in [(320,740),(402,874),(1440,960)]:
+                        visit.set_viewport_size({'width':width,'height':height})
+                        self.assertFalse(visit.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
+                        visit.screenshot(path=str(SCREENSHOTS / f'first-login-{width}.png'))
+                state = visit.evaluate("async () => (await import('./store.js')).loadStore()")
+                self.assertEqual((state['demo'], len(state['activities']), len(state['routines']), len(state['rewardAwards']), len(state['rewards'])), (False,0,0,0,14))
+                manifest = visit.request.get(URL + 'manifest.webmanifest').json()
+                self.assertEqual(len(manifest['icons']), 2)
+                for asset in manifest['icons']:
+                    dimensions = visit.evaluate("async source => { const image = new Image(); image.src = source; await image.decode(); return [image.naturalWidth,image.naturalHeight]; }", asset['src'])
+                    expected = int(asset['sizes'].split('x')[0])
+                    self.assertEqual(dimensions, [expected, expected])
+                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png')
+                self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
+                visit.get_by_role('button', name='Cerrar', exact=True).click()
+                self.assertEqual(visit.locator('.routine-card,.activity-row').count(), 0)
+                visit.reload()
+                visit.locator('#launch-screen').wait_for(state='hidden')
+                self.assertFalse(visit.locator('#sheet').is_visible())
+            finally:
+                context.close()
 
 
 if __name__ == '__main__':

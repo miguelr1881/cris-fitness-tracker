@@ -322,6 +322,10 @@ function settingsSheet() {
     const status = sheetBody.querySelector('.settings-group .muted-copy');
     status.insertAdjacentHTML('beforebegin', `<p class="settings-email">${escape(cloud.account.email)}</p>`);
   }
+  if (!globalThis.criLaunch?.installed()) {
+    sheetBody.querySelector('.sheet-content').insertAdjacentHTML('beforeend', `<button class="text-button" data-action="install-help">${icon('smartphone')}Añadir Cri al inicio</button>`);
+    icons();
+  }
 }
 
 function download(blob, filename) {
@@ -513,6 +517,8 @@ document.addEventListener('click', async event => {
   switch (action) {
     case 'settings': settingsSheet(); break;
     case 'close-sheet': closeSheet(); break;
+    case 'install-help': openSheet('Cri en tu inicio', `<div class="sheet-content">${globalThis.criLaunch?.guide(icon) || '<p>Cri ya está instalada.</p>'}</div>`); break;
+    case 'install-app': void globalThis.criLaunch?.install(); break;
     case 'discard-stay': discardDialog.close(); afterDiscard = null; break;
     case 'discard-leave': { const continuation = afterDiscard; closeSheet(true); continuation?.(); break; }
     case 'select-day': selectedDate = button.dataset.date; render(); break;
@@ -676,4 +682,9 @@ if (!blocked) {
   if (earned.rewardAwards.length > data.rewardAwards.length) commit(earned);
 }
 render();
-void cloud.start().finally(showRewardNotification);
+const launchArtwork = Promise.allSettled([document.fonts.ready, document.querySelector('.launch-brand img').decode()]);
+void Promise.allSettled([cloud.start(), Promise.race([launchArtwork, new Promise(resolve => setTimeout(resolve, 2500))])]).then(async () => {
+  await globalThis.criLaunch?.finish();
+  if (!cloud.account && !blocked && !sheet.open && !data.activeWorkout && !timer.running && globalThis.criLaunch?.shouldAskLogin()) void cloud.action('cloud-account');
+  else showRewardNotification();
+});

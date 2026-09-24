@@ -4,9 +4,13 @@ Diario personal de Barre, gimnasio y piscina. HTML, CSS y JavaScript modular, si
 
 ## Estado
 
-Version 0.4.2. Cliente oficial Supabase 2.116.0 incorporado como activo local. SQL creado y prueba de aislamiento ejecutada correctamente en el proyecto acordado. Implementados acceso por correo/contrasena, guardado por cuenta, cambios pendientes, conflictos y recuperacion. Suite local: 20 pruebas en Edge y 7 comprobaciones de los cambios en WebKit, incluyendo login y recuperacion en otro contexto con respuestas simuladas. Falta verificar guardado/recuperacion con la cuenta real de Cristina antes de declarar lista la nube o activar Pages.
+Version 0.5.0. Primera apertura sin datos de ejemplo: actividades, rutinas y premios ganados vacios; solo las 14 recompensas estan preparadas. Pantalla de carga, peticion de acceso al abrir sin cuenta y guia para anadir Cri al inicio. Una sesion guardada se recupera sin volver a pedir acceso. Los diarios existentes no se vacian.
+
+Cliente oficial Supabase 2.116.0 incorporado como activo local. SQL creado y prueba de aislamiento ejecutada correctamente en el proyecto acordado. Implementados acceso por correo/contrasena, guardado por cuenta, cambios pendientes, conflictos y recuperacion. Suite: 21 pruebas Edge y 6 comprobaciones WebKit, incluyendo primera apertura y cuenta simulada. Falta verificar guardado/recuperacion con la cuenta real de Cristina antes de declarar lista la nube o activar Pages.
 
 Nombre al anadir a inicio: Cri, mediante metadatos de Apple y manifiesto con rutas relativas. No incluye service worker ni garantiza arranque offline; falta comprobar la instalacion fisica en iPhone. Mis recompensas revela las dos entradas pendientes en orden fijo, conservando las demas ocultas. Ajustes muestra el correo conectado; Mi cuenta distingue diario nuevo, copia recuperada, pendientes y falta de confirmacion remota, con acceso directo al diario. Iniciar sesion consulta automaticamente la nube; Sincronizar permite volver a consultarla.
+
+Iconos PNG opacos de 180/192/512 px, incluyendo apple-touch-icon y variante maskable. Imagenes nativas de arranque para iPhone 16 Pro y 17 Pro Max, vertical/horizontal; otros dispositivos usan la pantalla web. La guia de instalacion aparece junto al primer acceso, distingue Safari/Android/escritorio y se oculta en standalone; tambien esta en Ajustes. La peticion automatica de acceso se muestra una vez por pestana sin cuenta y al cerrar sesion; puede cerrarse para conservar acceso al diario local. La carga espera la cuenta, acota la espera visual y ofrece reintentar si tarda mas de 30 segundos. No cambia la cuenta ni descarta formularios para mostrar instrucciones.
 
 Primer logro: Un beso por una clase de Barre/Heat, con felicitacion y anuncio de mas regalos, sin canje pendiente. Despues: Hersheys, mazapan, Yogs, Bubble Tea, Myka, Cine, Kimchis, Hikari, Riverside, Nacion Sushi, PF Changs, restaurante a eleccion y playa. Las metas siguen siendo independientes por disciplina; el orden visible ya no cambia con el porcentaje de progreso. Se conservan las personalizaciones y premios ganados al actualizar la lista original, incluyendo Myka/Yogs renombrados. No se repueblan listas vacias o completamente personalizadas. El restaurante nuevo parte de 60 sesiones gym, editable.
 
@@ -25,6 +29,8 @@ python -m unittest test_app -v
 ```
 
 Las pruebas requieren Python, Playwright y Edge. Usan contextos aislados con datos ficticios.
+
+Los activos ya estan generados. Para regenerarlos en Windows: `python generate_assets.py`, con Pillow y las fuentes Georgia instaladas en Windows, mas Manrope local. No se redistribuyen archivos de fuentes de Windows.
 
 ## Preparar Supabase
 
@@ -53,6 +59,8 @@ Repositorio creado: https://github.com/miguelr1881/cris-fitness-tracker, publico
 El codigo y la lista de regalos seran publicos. El PIN local solo oculta la edicion en la interfaz: no es autenticacion ni protege secretos. Los datos privados del diario nunca deben incluirse en el repositorio.
 
 Archivos publicos autorizados por la web: `index.html`, `manifest.webmanifest`, `styles.css`, `app.js`, `store.js`, `training.js`, `rewards.js`, `reward-ui.js`, `cloud.js`, `sync.js`, `cloud-config.js`, `supabase.min.js`, `SUPABASE-LICENSE.txt`, `lucide.min.js`, `manrope.ttf`, `FONT-LICENSE.txt`, `README.md`, `.gitignore`, `test_app.py` y la carpeta `supabase`. No subir respaldos JSON, datos de navegador, capturas, archivos de entorno ni carpetas temporales. La subida web no aplica `.gitignore`: seleccionar los archivos expresamente.
+
+Activos de arranque adicionales: `launch.js`, `generate_assets.py`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, `launch-1206x2622.png`, `launch-2622x1206.png`, `launch-1320x2868.png` y `launch-2868x1320.png`. Conservar sus rutas relativas para Pages.
 
 Una vez conectada y verificada la app, configurar Settings > Pages > Deploy from a branch > main > / (root). No cambiar el sitio de otra app. El enlace final sera `https://USUARIO.github.io/cris-fitness-tracker/`.
 

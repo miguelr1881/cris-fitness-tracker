@@ -39,6 +39,10 @@ export function createCloud(api) {
     if (account) {
       document.querySelector('.cloud-email').insertAdjacentHTML('afterend', `<p id="cloud-guidance" class="account-guidance" aria-live="polite">${api.escape(accountMessage())}</p><button class="primary-button cloud-continue" data-action="cloud-diary">${api.icon('arrow-right')}Ir a mi diario</button>`);
       api.icons();
+    } else {
+      document.querySelector('#cloud-login-form').insertAdjacentHTML('beforebegin', '<header class="account-welcome"><img src="icon-192.png" width="64" height="64" alt=""><div><h3>Bienvenida a Cri</h3><p>Inicia sesión para abrir tu diario.</p></div></header>');
+      document.querySelector('#cloud-login-form').closest('.sheet-content').insertAdjacentHTML('beforeend', globalThis.criLaunch?.guide(api.icon) || '');
+      api.icons();
     }
   }
 
@@ -88,6 +92,7 @@ export function createCloud(api) {
       sync.detach();
       api.apply(loadStore());
       api.toast('Sesión cerrada. La copia de esa cuenta y sus cambios pendientes se conservaron.');
+      show();
     } else if (name === 'cloud-link') {
       const guest = loadStore();
       if (guest.demo || guest.activeWorkout) { api.toast('No se vinculan datos de ejemplo ni entrenamientos en curso.'); return true; }

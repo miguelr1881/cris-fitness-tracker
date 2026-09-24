@@ -1,6 +1,6 @@
 import { DEFAULT_REWARDS, METRICS, migrateRewardCopy, migrateRewardGoal, migrateRewardOrder } from './rewards.js';
 
-export const VERSION = '0.4.2';
+export const VERSION = '0.5.0';
 export const STORAGE_KEY = 'cristina.diary.preview.v1';
 export const TYPES = {
   barre: { label: 'Barré', icon: 'sparkles', color: 'lilac' },
@@ -130,7 +130,7 @@ export function validateStore(data) {
 
 export function loadStore(storage = localStorage) {
   const raw = storage.getItem(STORAGE_KEY);
-  return validateStore(raw ? JSON.parse(raw) : makeDemo());
+  return validateStore(raw ? JSON.parse(raw) : emptyStore());
 }
 
 export function saveStore(data, storage = localStorage) {
