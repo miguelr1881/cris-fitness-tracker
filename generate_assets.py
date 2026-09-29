@@ -30,9 +30,11 @@ def main():
         ImageDraw.Draw(mask).rounded_rectangle((0, 0, mark_size, mark_size), radius=72, fill=255)
         middle = height // 2 - 80
         image.paste(mark, (width // 2 - mark_size // 2, middle - 215), mask)
-        title = ImageFont.truetype(str(FONTS / 'georgia.ttf'), 114)
+        title = ImageFont.truetype(str(FONTS / 'georgia.ttf'), 96)
         subtitle = ImageFont.truetype(str(ROOT / 'manrope.ttf'), 39)
-        drawing.text((width // 2, middle + 210), 'Cri', font=title, anchor='mm', fill='#302d36')
+        brand = "cristina's fitness"
+        assert drawing.textlength(brand, font=title) <= width - 120
+        drawing.text((width // 2, middle + 210), brand, font=title, anchor='mm', fill='#302d36')
         drawing.text((width // 2, middle + 330), 'Tu diario de movimiento', font=subtitle, anchor='mm', fill='#7c7785')
         image.save(ROOT / f'launch-{width}x{height}.png', optimize=True)
     print('Generated 3 icons and 4 iPhone launch images.')

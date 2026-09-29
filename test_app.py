@@ -229,9 +229,11 @@ class DiaryTests(unittest.TestCase):
         self.assertTrue(pending.value.suggested_filename.endswith('.png'))
 
     def test_responsive_views_and_screenshots(self):
-        self.assertEqual(self.page.locator('meta[name="apple-mobile-web-app-title"]').get_attribute('content'), 'Cri')
+        self.assertIn("cristina's fitness", self.page.title())
+        self.assertIn('kcal totales', self.page.locator('.week-summary').inner_text())
+        self.assertEqual(self.page.locator('meta[name="apple-mobile-web-app-title"]').get_attribute('content'), "cristina's fitness")
         manifest = self.page.request.get(URL + 'manifest.webmanifest').json()
-        self.assertEqual((manifest['name'], manifest['short_name']), ('Cri', 'Cri'))
+        self.assertEqual((manifest['name'], manifest['short_name']), ("cristina's fitness", "cristina's fitness"))
         self.assertEqual((manifest['start_url'], manifest['scope']), ('./', './'))
         for width, height in [(320, 740), (402, 874), (768, 1024), (1440, 960)]:
             self.page.set_viewport_size({"width": width, "height": height})
@@ -240,10 +242,12 @@ class DiaryTests(unittest.TestCase):
                 self.page.evaluate('document.fonts.ready')
                 overflow = self.page.evaluate('document.documentElement.scrollWidth > innerWidth')
                 self.assertFalse(overflow, f'{width}/{view}: horizontal overflow')
+                self.assertNotIn('activas', self.page.locator('main').inner_text())
                 self.assertGreater(self.page.locator('svg.lucide').count(), 5)
                 self.page.screenshot(path=str(SCREENSHOTS / f'{view}-{width}.png'), full_page=True)
             self.page.locator('[data-nav="diary"]').click()
             self.page.locator('.quick-action[data-type="barre"]').click()
+            self.assertTrue(self.page.get_by_label('Calorías totales opcional').is_visible())
             self.assertTrue(self.page.get_by_role('button', name='Guardar actividad').is_visible())
             self.assertFalse(self.page.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
             self.page.screenshot(path=str(SCREENSHOTS / f'editor-{width}.png'))
@@ -779,6 +783,7 @@ class DiaryTests(unittest.TestCase):
                 visit.route('**/app.js', lambda route: pending.append(route), times=1)
                 visit.goto(URL, wait_until='commit')
                 visit.locator('#launch-screen').wait_for()
+                self.assertEqual(visit.locator('.launch-brand h1').inner_text(), "cristina's fitness")
                 self.assertTrue(visit.locator('.app-shell').evaluate('element => element.inert'))
                 visit.locator('.launch-brand img').evaluate('image => image.decode()')
                 if self.browser.browser_type.name != 'webkit':
@@ -792,6 +797,7 @@ class DiaryTests(unittest.TestCase):
                 pending[0].continue_()
                 visit.locator('#launch-screen').wait_for(state='hidden')
                 visit.locator('#entry-screen').wait_for()
+                self.assertIn("cristina's fitness", visit.locator('.entry-brand h1').inner_text())
                 self.assertFalse(visit.locator('#launch-screen').is_visible())
                 self.assertTrue(visit.locator('.app-shell').evaluate('element => element.inert'))
                 self.assertEqual(visit.locator('#cloud-login-form').count(), 1 if standalone else 0)

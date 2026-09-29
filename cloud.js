@@ -42,7 +42,7 @@ export function createCloud(api) {
     const account = signedOut ? null : sync?.account;
     if (globalThis.criLaunch?.installOnly()) { globalThis.criLaunch.tutorial(api.icon); api.icons(); return; }
     if (!account && globalThis.criLaunch?.installed()) {
-      globalThis.criLaunch.gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="Cri"><h1>Bienvenida a Cri</h1></header><p class="muted-copy">Inicia sesión para abrir tu diario.</p><form id="cloud-login-form"><label class="field"><span>Correo</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label><label class="field"><span>Contraseña</span><input name="password" type="password" autocomplete="current-password" required></label><p id="cloud-error" role="alert">${navigator.onLine ? '' : 'Necesitas conexión para iniciar sesión por primera vez.'}</p><button class="primary-button" type="submit" ${!client ? 'disabled' : ''}>${api.icon('log-in')}Iniciar sesión</button></form>`, 'login');
+      globalThis.criLaunch.gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="cristina\x27s fitness"><h1>Bienvenida a cristina\x27s fitness</h1></header><p class="muted-copy">Inicia sesión para abrir tu diario.</p><form id="cloud-login-form"><label class="field"><span>Correo</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label><label class="field"><span>Contraseña</span><input name="password" type="password" autocomplete="current-password" required></label><p id="cloud-error" role="alert">${navigator.onLine ? '' : 'Necesitas conexión para iniciar sesión por primera vez.'}</p><button class="primary-button" type="submit" ${!client ? 'disabled' : ''}>${api.icon('log-in')}Iniciar sesión</button></form>`, 'login');
       api.icons();
       return;
     }
@@ -52,7 +52,7 @@ export function createCloud(api) {
       document.querySelector('.cloud-email').insertAdjacentHTML('afterend', `<p id="cloud-guidance" class="account-guidance" aria-live="polite">${api.escape(accountMessage())}</p><button class="primary-button cloud-continue" data-action="cloud-diary">${api.icon('arrow-right')}Ir a mi diario</button>`);
       api.icons();
     } else {
-      document.querySelector('#cloud-login-form').insertAdjacentHTML('beforebegin', '<header class="account-welcome"><img src="icon-192.png" width="64" height="64" alt=""><div><h3>Bienvenida a Cri</h3><p>Inicia sesión para abrir tu diario.</p></div></header>');
+      document.querySelector('#cloud-login-form').insertAdjacentHTML('beforebegin', '<header class="account-welcome"><img src="icon-192.png" width="64" height="64" alt=""><div><h3>Bienvenida a cristina\x27s fitness</h3><p>Inicia sesión para abrir tu diario.</p></div></header>');
       document.querySelector('#cloud-login-form').closest('.sheet-content').insertAdjacentHTML('beforeend', globalThis.criLaunch?.guide(api.icon) || '');
       api.icons();
     }

@@ -78,7 +78,7 @@ export function createRewards(api) {
     context.fillStyle = '#e0d2ec'; context.fillRect(0, 0, 1080, 24);
     context.strokeStyle = '#e6ddeb'; context.lineWidth = 1;
     context.strokeRect(56, 100, 968, 1720);
-    context.textAlign = 'center'; context.fillStyle = '#7e658f'; context.font = '44px Georgia'; context.fillText('cristina.', 540, 285);
+    context.textAlign = 'center'; context.fillStyle = '#7e658f'; context.font = '44px Georgia'; context.fillText('cristina\x27s fitness', 540, 285);
     context.font = '19px Manrope'; context.fillStyle = '#9987a5'; context.fillText(award.kind === 'welcome' ? 'MI PRIMER LOGRO' : 'RECOMPENSA DESBLOQUEADA', 540, 358);
     const middle = 615;
     context.strokeStyle = '#d2bce3'; context.lineWidth = 2;

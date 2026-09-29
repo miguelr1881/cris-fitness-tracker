@@ -42,11 +42,11 @@
   function guide(icon) {
     if (installed()) return '';
     const steps = ios()
-      ? [['share', 'Abre este enlace en Safari y toca Compartir.'], ['square-plus', 'Elige Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre Cri y toca Añadir.']]
+      ? [['share', 'Abre este enlace en Safari y toca Compartir.'], ['square-plus', 'Elige Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre cristina\x27s fitness y toca Añadir.']]
       : /Android/i.test(navigator.userAgent)
-        ? [['ellipsis-vertical', 'Abre el menú de tu navegador.'], ['square-plus', 'Elige Instalar app o Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre Cri.']]
-        : [['smartphone', 'Abre este enlace en Safari desde tu iPhone.'], ['share', 'Toca Compartir y Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre Cri y toca Añadir.']];
-    return `<section class="install-guide" aria-label="Añadir Cri al inicio"><h3>Cri en tu pantalla de inicio</h3><ol>${steps.map(([symbol, text]) => `<li>${icon(symbol)}<span>${text}</span></li>`).join('')}</ol>${prompt ? `<button class="secondary-button" data-action="install-app">${icon('download')}Instalar Cri</button>` : ''}</section>`;
+        ? [['ellipsis-vertical', 'Abre el menú de tu navegador.'], ['square-plus', 'Elige Instalar app o Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre cristina\x27s fitness.']]
+        : [['smartphone', 'Abre este enlace en Safari desde tu iPhone.'], ['share', 'Toca Compartir y Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre cristina\x27s fitness y toca Añadir.']];
+    return `<section class="install-guide" aria-label="Añadir cristina\x27s fitness al inicio"><h3>cristina\x27s fitness en tu pantalla de inicio</h3><ol>${steps.map(([symbol, text]) => `<li>${icon(symbol)}<span>${text}</span></li>`).join('')}</ol>${prompt ? `<button class="secondary-button" data-action="install-app">${icon('download')}Instalar cristina\x27s fitness</button>` : ''}</section>`;
   }
 
   globalThis.criLaunch = {
@@ -58,7 +58,7 @@
     release,
     get locked() { return !entry.hidden; },
     tutorial(icon) {
-      gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="Cri"><h1>Cri</h1></header>${guide(icon)}`, 'install');
+      gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="cristina\x27s fitness"><h1>cristina\x27s fitness</h1></header>${guide(icon)}`, 'install');
     },
     async install() {
       if (!prompt) return false;
