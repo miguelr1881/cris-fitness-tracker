@@ -23,4 +23,6 @@ dialog{border:1px solid #e7deed;border-radius:18px;box-shadow:0 25px 100px #2b17
 .topbar-actions{flex-shrink:0}.launch-brand{max-width:calc(100% - 40px)}.launch-brand h1{font-size:32px;line-height:1.2;overflow-wrap:break-word}.entry-brand h1{font-size:28px;line-height:1.25;overflow-wrap:break-word}.account-welcome h3{font-size:22px;line-height:1.25;overflow-wrap:break-word}
 .language-row{gap:12px;flex-wrap:wrap}.language-row .segmented{flex-shrink:0}.language-row button{min-height:44px}
 .launching #entry-screen{visibility:hidden}
+.launch-brand{align-self:stretch;width:100%;height:100%}
+#launch-screen{display:block;padding:0}.launch-brand{position:absolute;inset:0;max-width:none;display:block}.launch-brand picture,.launch-brand img{display:block;width:100%;height:100%}.launch-brand img{object-fit:contain;border-radius:0;box-shadow:none}.launch-brand h1{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.launch-state{position:absolute;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:calc(100% - 48px);padding:12px;background:#faf9fc}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

@@ -32,6 +32,7 @@ localizeDocument();
   const deadline = setTimeout(() => {
     if (ready) return;
     document.querySelector('#launch-status').textContent = t('La carga está tardando. Comprueba tu conexión e inténtalo de nuevo.');
+    document.querySelector('.launch-state').hidden = false;
     document.querySelector('#launch-retry').hidden = false;
   }, 30000);
   document.querySelector('#launch-retry').addEventListener('click', () => location.reload());

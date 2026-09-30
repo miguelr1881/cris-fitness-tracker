@@ -10,13 +10,13 @@
   <meta name="description" content="El diario de movimiento de Cristina.">
   <title>cristina's fitness · Mi diario</title>
   <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="launch-1206x2622.png">
-  <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="launch-2622x1206.png">
-  <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="launch-1320x2868.png">
-  <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="launch-2868x1320.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=0.8.1">
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="launch-1206x2622.png?v=0.8.1">
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="launch-2622x1206.png?v=0.8.1">
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="launch-1320x2868.png?v=0.8.1">
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="launch-2868x1320.png?v=0.8.1">
   <link rel="stylesheet" href="styles.css">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.1">
   <script src="lucide.min.js" defer></script>
   <script type="module" src="launch.js"></script>
   <script src="supabase.min.js" defer></script>
@@ -24,8 +24,8 @@
 </head>
 <body class="launching">
   <section id="launch-screen" aria-label="Abriendo cristina's fitness" aria-busy="true">
-    <div class="launch-brand"><img src="icon-512.png" width="104" height="104" alt="cristina's fitness"><h1>cristina's fitness</h1><p>Tu diario de movimiento</p></div>
-    <div class="launch-state"><span class="launch-spinner" aria-hidden="true"></span><p id="launch-status" role="status">Preparando tu diario…</p><button id="launch-retry" type="button" class="secondary-button" hidden>Volver a intentar</button></div>
+    <div class="launch-brand"><picture aria-hidden="true"><source media="(orientation: landscape) and (min-width: 920px)" srcset="launch-2868x1320.png?v=0.8.1"><source media="(orientation: landscape)" srcset="launch-2622x1206.png?v=0.8.1"><source media="(min-width: 420px)" srcset="launch-1320x2868.png?v=0.8.1"><img src="launch-1206x2622.png?v=0.8.1" width="1206" height="2622" alt="" fetchpriority="high"></picture><h1>cristina's fitness</h1></div>
+    <div class="launch-state" hidden><p id="launch-status" role="status"></p><button id="launch-retry" type="button" class="secondary-button" hidden>Volver a intentar</button></div>
   </section>
   <noscript><style>#launch-screen,.app-shell{display:none!important}</style><p class="no-script">Activa JavaScript en tu navegador para abrir cristina's fitness.</p></noscript>
   <div class="app-shell" inert>
@@ -39,9 +39,9 @@
       <div class="sidebar-bottom"><button class="profile-button" data-action="settings"><span class="avatar">C</span><span>Cristina<small>Ajustes</small></span><i data-lucide="settings-2"></i></button></div>
     </aside>
     <div class="workspace">
-      <header class="topbar"><a href="#diary" class="mobile-brand">cristina.</a><span class="desktop-greeting">Cristina <span class="greeting-dot"></span></span><div class="topbar-actions"><span class="local-status"><span></span>Solo en este dispositivo</span><button class="icon-button reward-access" data-action="rewards" aria-label="Mis recompensas" title="Mis recompensas"><i data-lucide="gift"></i></button><button class="avatar mobile-settings" data-action="settings" aria-label="Abrir ajustes">C</button></div></header>
+      <header class="topbar"><a href="#diary" class="mobile-brand">cristina<span>.</span></a><span class="desktop-greeting">Cristina <span class="greeting-dot"></span></span><div class="topbar-actions"><span class="local-status"><span></span>Solo en este dispositivo</span><button class="icon-button reward-access" data-action="rewards" aria-label="Mis recompensas" title="Mis recompensas"><i data-lucide="gift"></i></button><button class="avatar mobile-settings" data-action="settings" aria-label="Abrir ajustes">C</button></div></header>
       <main id="main" tabindex="-1"></main>
-      <footer class="app-footer"><span id="data-label">Solo en este dispositivo</span><span id="app-version">v0.8.0</span></footer>
+      <footer class="app-footer"><span id="data-label">Solo en este dispositivo</span><span id="app-version">v0.8.1</span></footer>
     </div>
   </div>
   <button id="timer-chip" class="timer-chip" data-action="timer" hidden><i data-lucide="timer"></i><span id="timer-chip-time">00:45</span></button>
