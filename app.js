@@ -696,8 +696,7 @@ if (!blocked) {
   if (earned.rewardAwards.length > data.rewardAwards.length) commit(earned);
 }
 render();
-const launchArtwork = Promise.allSettled([document.fonts.ready, document.querySelector('.launch-brand img').decode()]);
-void Promise.allSettled([globalThis.criLaunch?.installOnly() ? Promise.resolve() : cloud.start(), Promise.race([launchArtwork, new Promise(resolve => setTimeout(resolve, 2500))])]).then(async () => {
+void Promise.allSettled([globalThis.criLaunch?.installOnly() ? Promise.resolve() : cloud.start()]).then(async () => {
   if (globalThis.criLaunch?.installOnly()) { globalThis.criLaunch.tutorial(icon); icons(); }
   else if (globalThis.criLaunch?.installed() && !cloud.account) await cloud.action('cloud-account');
   await globalThis.criLaunch?.finish();

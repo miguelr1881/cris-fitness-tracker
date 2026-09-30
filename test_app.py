@@ -200,7 +200,7 @@ class DiaryTests(unittest.TestCase):
             visit.reload()
             visit.locator('#launch-screen').wait_for(state='hidden')
             self.assertEqual(visit.locator('#main h1').inner_text(), 'My diary')
-            self.assertEqual(visit.locator('.launch-brand h1').text_content(), "cristina's fitness")
+            self.assertEqual(visit.locator('#launch-screen img,#launch-screen picture,#launch-screen h1').count(), 0)
             self.assertTrue(visit.evaluate("caches.match(new URL('./i18n.js',location.href).href).then(Boolean)"))
             for width in [320,402,440,768,1440]:
                 visit.set_viewport_size({'width':width,'height':960})
@@ -857,9 +857,9 @@ class DiaryTests(unittest.TestCase):
         self.assertIsNotNone(self.page.evaluate('key => localStorage.getItem(key)', account_key))
 
 
-    def test_launch_matches_native_artwork_without_layout_shift(self):
-        from PIL import Image, ImageChops, ImageStat
-        for width, height in [(402,874),(440,956),(874,402),(956,440)]:
+    def test_launch_uses_skeleton_without_repeating_native_brand(self):
+        from PIL import Image, ImageChops
+        for width, height in [(320,740),(402,874),(440,956),(874,402),(956,440),(1440,960)]:
             with self.subTest(width=width, height=height):
                 context = self.browser.new_context(viewport={'width':width,'height':height}, device_scale_factor=3, reduced_motion='reduce', service_workers='block')
                 try:
@@ -877,24 +877,26 @@ class DiaryTests(unittest.TestCase):
                     }""")
                     pending[0].continue_()
                     visit.wait_for_function('typeof globalThis.releaseLaunch === "function"')
-                    artwork = visit.locator('.launch-brand img')
-                    artwork.evaluate('image => image.decode()')
-                    source = artwork.evaluate('image => image.currentSrc')
-                    expected_name = f'launch-{width * 3}x{height * 3}.png?v=0.8.1'
-                    self.assertTrue(source.endswith(expected_name), source)
-                    self.assertIn(expected_name, visit.locator('link[rel="apple-touch-startup-image"]').evaluate_all('links => links.map(link => link.getAttribute("href"))'))
+                    skeleton = visit.locator('.launch-skeleton')
+                    self.assertTrue(skeleton.is_visible())
+                    self.assertEqual(visit.locator('#launch-screen img,#launch-screen picture,#launch-screen h1').count(), 0)
+                    self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
                     self.assertFalse(visit.locator('.launch-state').is_visible())
-                    before = artwork.bounding_box()
-                    self.assertEqual(before, {'x':0,'y':0,'width':width,'height':height})
-                    native = Image.open(BytesIO(visit.request.get(source).body())).convert('RGB')
-                    capture = Image.open(BytesIO(visit.screenshot(path=str(SCREENSHOTS / f'native-match-{width}-{height}.png'), timeout=10000))).convert('RGB')
-                    self.assertEqual(capture.size, native.size)
-                    self.assertLess(max(ImageStat.Stat(ImageChops.difference(native, capture)).mean), 0.5)
+                    before = skeleton.bounding_box()
+                    self.assertGreaterEqual(before['x'], 0)
+                    self.assertLessEqual(before['x'] + before['width'], width)
+                    self.assertEqual(skeleton.get_attribute('aria-hidden'), 'true')
+                    self.assertEqual(skeleton.locator('> div').first.evaluate("element => getComputedStyle(element,'::after').animationName"), 'none')
+                    capture = Image.open(BytesIO(visit.screenshot(path=str(SCREENSHOTS / f'skeleton-{width}-{height}.png'), timeout=10000))).convert('RGB')
+                    self.assertIsNotNone(ImageChops.difference(capture, Image.new('RGB', capture.size, '#faf9fc')).getbbox())
                     visit.evaluate('document.fonts.ready')
-                    self.assertEqual(artwork.bounding_box(), before)
+                    self.assertEqual(skeleton.bounding_box(), before)
+                    visit.set_viewport_size({'width':width,'height':height - 62})
+                    self.assertEqual(skeleton.bounding_box(), before)
                     self.assertEqual(visit.locator('#launch-status').text_content(), '')
                     visit.evaluate('globalThis.releaseLaunch()')
                     visit.locator('#launch-screen').wait_for(state='hidden')
+                    self.assertTrue(visit.locator('#cloud-login-form').is_visible())
                 finally:
                     context.close()
 
@@ -911,7 +913,7 @@ class DiaryTests(unittest.TestCase):
             before = visit.evaluate("localStorage.getItem('cristina.diary.preview.v1')")
             result = visit.evaluate("""async () => {
                 const manifestURL = document.querySelector('link[rel="manifest"]').href;
-                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.8.1-'));
+                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.8.2-'));
                 const cache = await caches.open(cacheName);
                 await cache.put(manifestURL, new Response(JSON.stringify({name:'Cri',short_name:'Cri'}), {headers:{'Content-Type':'application/manifest+json'}}));
                 const old = await (await cache.match(manifestURL)).json();
@@ -953,7 +955,7 @@ class DiaryTests(unittest.TestCase):
                                     const element = document.querySelector(selector);
                                     return !!element && element.checkVisibility({visibilityProperty:true, opacityProperty:true});
                                 };
-                                const title = document.querySelector('.launch-brand img');
+                                const title = document.querySelector('.launch-skeleton');
                                 const bounds = title.getBoundingClientRect();
                                 launchFrames.push({launch:visible('#launch-screen'), entry:visible('#entry-screen'), app:visible('.app-shell'), opacity:Number(getComputedStyle(screen).opacity), count:document.querySelectorAll('#launch-screen').length, clipped:bounds.left < 0 || bounds.right > innerWidth || title.scrollWidth > title.clientWidth});
                                 if (!screen.hidden) requestAnimationFrame(sample);
@@ -973,7 +975,7 @@ class DiaryTests(unittest.TestCase):
                             self.assertFalse(any(frame['launch'] and (frame['entry'] or frame['app'] or frame['clipped']) for frame in frames))
                             self.assertTrue(all(frame['count'] == 1 for frame in frames))
                             self.assertTrue(visit.locator('#entry-screen').is_visible())
-                            self.assertEqual(visit.locator('.launch-brand h1').text_content(), "cristina's fitness")
+                            self.assertEqual(visit.locator('#launch-screen img,#launch-screen picture,#launch-screen h1').count(), 0)
                             self.assertEqual(visit.locator('.mobile-brand').text_content(), 'cristina.')
                             self.assertEqual(visit.locator('.brand > span:last-child').evaluate('element => element.firstChild.textContent'), 'cristina.')
                     finally:
@@ -992,9 +994,9 @@ class DiaryTests(unittest.TestCase):
                 visit.route('**/app.js', lambda route: pending.append(route), times=1)
                 visit.goto(URL, wait_until='commit')
                 visit.locator('#launch-screen').wait_for()
-                self.assertEqual(visit.locator('.launch-brand h1').inner_text(), "cristina's fitness")
+                self.assertTrue(visit.locator('.launch-skeleton').is_visible())
+                self.assertEqual(visit.locator('#launch-screen img,#launch-screen picture,#launch-screen h1').count(), 0)
                 self.assertTrue(visit.locator('.app-shell').evaluate('element => element.inert'))
-                visit.locator('.launch-brand img').evaluate('image => image.decode()')
                 if self.browser.browser_type.name != 'webkit':
                     visit.screenshot(path=str(SCREENSHOTS / f'launch-{standalone}-402.png'))
                 self.assertEqual(len(pending), 1)
@@ -1025,7 +1027,7 @@ class DiaryTests(unittest.TestCase):
                     dimensions = visit.evaluate("async source => { const image = new Image(); image.src = source; await image.decode(); return [image.naturalWidth,image.naturalHeight]; }", asset['src'])
                     expected = int(asset['sizes'].split('x')[0])
                     self.assertEqual(dimensions, [expected, expected])
-                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.8.1')
+                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.8.2')
                 self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
                 self.assertEqual(visit.get_by_role('button', name='Cerrar', exact=True).count(), 0)
                 visit.keyboard.press('Escape')

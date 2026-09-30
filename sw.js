@@ -1,5 +1,5 @@
 const SCOPE = new URL(self.registration.scope);
-const VERSION = '0.8.1';
+const VERSION = '0.8.2';
 const CACHE = `cri-shell-${VERSION}-${SCOPE.pathname}`;
 const ASSETS = ['index.html', 'styles.css', 'manifest.webmanifest', 'launch.js', 'app.js', 'i18n.js', 'store.js', 'training.js', 'rewards.js', 'reward-ui.js', 'cloud.js', 'cloud-config.js', 'sync.js', 'lucide.min.js', 'supabase.min.js', 'manrope.ttf', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'launch-1206x2622.png', 'launch-2622x1206.png', 'launch-1320x2868.png', 'launch-2868x1320.png'];
 const VERSIONED = ASSETS.filter(path => path === 'manifest.webmanifest' || path.endsWith('.png')).map(path => `${path}?v=${VERSION}`);
