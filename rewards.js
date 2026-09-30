@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const GOALS = [['barre',8],['swim',2000],['gym',6],['barre',16],['swim',5000],['gym',15],['barre',30],['gymSets',150],['swim',15000],['gym',40],['barre',60],['gym',80]];
 const OLD_DAYS = [8,16,25,36,48,64,80,100,125,155,190,240];
 export const METRICS = { barre: 'clases de Barré / HIT', swim: 'metros nadados', gym: 'sesiones de gimnasio', gymSets: 'series completadas de gimnasio', days: 'días activos' };
@@ -102,6 +104,6 @@ export function rewardCount(data, reward, today) {
 }
 
 export function rewardGoal(reward) {
-  if (reward.metric === 'barre' && reward.days === 1) return '1 clase de Barré / HIT';
-  return `${reward.days} ${METRICS[reward.metric || 'days']}`;
+  if (reward.metric === 'barre' && reward.days === 1) return t('1 clase de Barré / HIT');
+  return `${reward.days} ${t(METRICS[reward.metric || 'days'])}`;
 }

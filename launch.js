@@ -1,3 +1,5 @@
+import { t, localizeDocument } from './i18n.js';
+localizeDocument();
 (() => {
   const screen = document.querySelector('#launch-screen');
   const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -12,7 +14,7 @@
     ? navigator.serviceWorker.register('./sw.js', {scope:'./', updateViaCache:'none'}).then(() => navigator.serviceWorker.ready).catch(() => null)
     : Promise.resolve(null);
   function gate(content, kind) {
-    entry.innerHTML = `<div class="entry-content">${content}</div>`;
+    entry.innerHTML = t`<div class="entry-content">${content}</div>`;
     entry.dataset.kind = kind;
     entry.hidden = false;
     document.querySelector('.app-shell').inert = true;
@@ -29,7 +31,7 @@
   let ready = false;
   const deadline = setTimeout(() => {
     if (ready) return;
-    document.querySelector('#launch-status').textContent = 'La carga está tardando. Comprueba tu conexión e inténtalo de nuevo.';
+    document.querySelector('#launch-status').textContent = t('La carga está tardando. Comprueba tu conexión e inténtalo de nuevo.');
     document.querySelector('#launch-retry').hidden = false;
   }, 30000);
   document.querySelector('#launch-retry').addEventListener('click', () => location.reload());
@@ -42,11 +44,11 @@
   function guide(icon) {
     if (installed()) return '';
     const steps = ios()
-      ? [['share', 'Abre este enlace en Safari y toca Compartir.'], ['square-plus', 'Elige Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre cristina\x27s fitness y toca Añadir.']]
+      ? [['share', t('Abre este enlace en Safari y toca Compartir.')], ['square-plus', t('Elige Añadir a pantalla de inicio.')], ['check', t('Confirma el nombre cristina\x27s fitness y toca Añadir.')]]
       : /Android/i.test(navigator.userAgent)
-        ? [['ellipsis-vertical', 'Abre el menú de tu navegador.'], ['square-plus', 'Elige Instalar app o Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre cristina\x27s fitness.']]
-        : [['smartphone', 'Abre este enlace en Safari desde tu iPhone.'], ['share', 'Toca Compartir y Añadir a pantalla de inicio.'], ['check', 'Confirma el nombre cristina\x27s fitness y toca Añadir.']];
-    return `<section class="install-guide" aria-label="Añadir cristina\x27s fitness al inicio"><h3>cristina\x27s fitness en tu pantalla de inicio</h3><ol>${steps.map(([symbol, text]) => `<li>${icon(symbol)}<span>${text}</span></li>`).join('')}</ol>${prompt ? `<button class="secondary-button" data-action="install-app">${icon('download')}Instalar cristina\x27s fitness</button>` : ''}</section>`;
+        ? [['ellipsis-vertical', t('Abre el menú de tu navegador.')], ['square-plus', t('Elige Instalar app o Añadir a pantalla de inicio.')], ['check', t('Confirma el nombre cristina\x27s fitness.')]]
+        : [['smartphone', t('Abre este enlace en Safari desde tu iPhone.')], ['share', t('Toca Compartir y Añadir a pantalla de inicio.')], ['check', t('Confirma el nombre cristina\x27s fitness y toca Añadir.')]];
+    return t`<section class="install-guide" aria-label="Añadir cristina\x27s fitness al inicio"><h3>cristina\x27s fitness en tu pantalla de inicio</h3><ol>${steps.map(([symbol, text]) => t`<li>${icon(symbol)}<span>${text}</span></li>`).join('')}</ol>${prompt ? t`<button class="secondary-button" data-action="install-app">${icon('download')}Instalar cristina\x27s fitness</button>` : ''}</section>`;
   }
 
   globalThis.criLaunch = {
@@ -58,7 +60,7 @@
     release,
     get locked() { return !entry.hidden; },
     tutorial(icon) {
-      gate(`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="cristina\x27s fitness"><h1>cristina\x27s fitness</h1></header>${guide(icon)}`, 'install');
+      gate(t`<header class="entry-brand"><img src="icon-192.png" width="88" height="88" alt="cristina\x27s fitness"><h1>cristina\x27s fitness</h1></header>${guide(icon)}`, 'install');
     },
     async install() {
       if (!prompt) return false;

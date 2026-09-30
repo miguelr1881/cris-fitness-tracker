@@ -2,6 +2,7 @@ import json
 import base64
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -100,9 +101,11 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(result["week"], {"start": "2025-12-29", "end": "2026-01-04"})
 
     def test_edit_past_and_reload_delete_undo(self):
+        today = self.page.locator('.calendar-day[aria-current="date"]').get_attribute('data-date')
+        past_date = (date.fromisoformat(today) - timedelta(days=28)).isoformat()
         original = self.page.locator('.activity-list .activity-row').first
         original.click()
-        self.page.locator('[name="date"]').fill('2026-09-20')
+        self.page.locator('[name="date"]').fill(past_date)
         self.page.locator('[name="calories"]').fill('432')
         self.page.locator('[name="notes"]').fill('Corrección de prueba')
         self.page.get_by_role('button', name='Guardar cambios').click()
@@ -110,16 +113,20 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(len(state['activities']), 12)
         changed = next(activity for activity in state['activities'] if activity['id'] == 'demo-0')
         self.assertEqual(changed['calories'], 432)
-        self.assertEqual(changed['date'], '2026-09-20')
+        self.assertEqual(changed['date'], past_date)
         self.page.reload()
         self.page.wait_for_selector('.calendar-day')
         self.assertEqual(self.stored(), state)
-        self.page.locator('[data-date="2026-09-20"]').click()
+        self.assertEqual(self.page.locator(f'[data-date="{past_date}"]').count(), 0)
+        self.page.locator('[data-action="calendar-prev"]').click()
+        self.page.locator('[data-action="calendar-prev"]').click()
+        self.page.locator(f'[data-date="{past_date}"]').click()
         self.page.locator('[data-action="edit-activity"][data-id="demo-0"]').click()
         self.page.get_by_role('button', name='Eliminar actividad', exact=True).click()
         self.assertEqual(len(self.stored()['activities']), 11)
         self.page.get_by_role('button', name='Deshacer', exact=True).click()
         self.assertEqual(len(self.stored()['activities']), 12)
+        self.assertCountEqual(self.stored()['activities'], state['activities'])
 
     def test_swim_cardio_and_optional_calories(self):
         self.page.locator('.quick-action[data-type="swim"]').click()
@@ -135,6 +142,76 @@ class DiaryTests(unittest.TestCase):
         self.page.locator('[name="minutes"]').fill('20')
         self.page.get_by_role('button', name='Guardar actividad').click()
         self.assertEqual(self.stored()['activities'][-1]['type'], 'cardio')
+
+    def test_language_persistence_and_personal_content(self):
+        self.page.evaluate("""async () => {
+            const model = await import('./store.js');
+            const { DEFAULT_REWARDS } = await import('./rewards.js');
+            const state = model.loadStore();
+            state.routines[0].name = 'Guardar cambios';
+            state.rewards = [{...DEFAULT_REWARDS[0], days:1000, name:'Mis rutinas', description:'Guardar cambios'}];
+            model.saveStore(state);
+        }""")
+        self.page.reload()
+        before = self.stored()
+        self.page.locator('.mobile-settings').click()
+        self.page.get_by_role('button', name='English', exact=True).click()
+        self.assertEqual(self.page.get_by_role('button', name='English', exact=True).get_attribute('aria-pressed'), 'true')
+        self.assertTrue(self.page.get_by_role('group', name='Language', exact=True).is_visible())
+        self.page.get_by_role('button', name='Close', exact=True).click()
+        self.assertEqual(self.page.locator('.mobile-brand').inner_text(), 'cristina.')
+        self.assertEqual(self.page.locator('#main h1').inner_text(), 'My diary')
+        self.assertEqual(self.page.locator('.weekdays').inner_text().split(), ['M','T','W','T','F','S','S'])
+        self.page.get_by_role('button', name='My rewards', exact=True).click()
+        self.assertEqual(self.page.locator('.next-reward h3').inner_text(), 'Mis rutinas')
+        self.assertEqual(self.page.locator('.reward-description').inner_text(), 'Guardar cambios')
+        self.assertEqual(self.page.locator('[data-action="preview-celebration"]').count(), 0)
+        self.page.get_by_role('button', name='Close', exact=True).click()
+        self.page.locator('[data-nav="routines"]').click()
+        self.assertEqual(self.page.locator('.routine-card h2').first.inner_text(), 'Guardar cambios')
+        self.assertEqual(self.stored(), before)
+        self.page.reload()
+        self.assertEqual(self.page.locator('html').get_attribute('lang'), 'en')
+        self.assertEqual(self.page.locator('#main h1').inner_text(), 'My routines')
+        self.page.locator('.routine-card').first.click()
+        self.page.get_by_role('button', name='Start workout', exact=True).click()
+        self.page.locator('[data-workout-input="weight"]').first.fill('12.5')
+        active = self.stored()
+        self.page.locator('.mobile-settings').click()
+        self.page.get_by_role('button', name='Español', exact=True).click()
+        self.page.get_by_role('button', name='Cerrar', exact=True).click()
+        self.assertEqual(self.page.locator('html').get_attribute('lang'), 'es')
+        self.assertEqual(self.page.locator('.workout h1').inner_text(), 'Guardar cambios')
+        self.assertEqual(self.stored(), active)
+        self.assertEqual(self.page.locator('[data-workout-input="weight"]').first.input_value(), '12.5')
+
+    def test_language_offline_and_responsive(self):
+        context = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce')
+        try:
+            context.add_init_script("localStorage.setItem('cristina.language.v1','en'); sessionStorage.setItem('cristina.login-prompt.v1','shown');")
+            visit = context.new_page()
+            visit.goto(URL)
+            visit.locator('#launch-screen').wait_for(state='hidden')
+            visit.evaluate('navigator.serviceWorker.ready.then(() => true)')
+            visit.reload()
+            context.set_offline(True)
+            visit.reload()
+            visit.locator('#launch-screen').wait_for(state='hidden')
+            self.assertEqual(visit.locator('#main h1').inner_text(), 'My diary')
+            self.assertEqual(visit.locator('.launch-brand h1').text_content(), "cristina's fitness")
+            self.assertTrue(visit.evaluate("caches.match(new URL('./i18n.js',location.href).href).then(Boolean)"))
+            for width in [320,402,440,768,1440]:
+                visit.set_viewport_size({'width':width,'height':960})
+                visit.locator('.mobile-settings' if width < 768 else '.profile-button').click()
+                self.assertTrue(visit.get_by_role('group', name='Language', exact=True).is_visible())
+                self.assertFalse(visit.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
+                visit.screenshot(path=str(SCREENSHOTS / f'english-settings-{width}.png'))
+                visit.get_by_role('button', name='Close', exact=True).click()
+                for view in ['diary','routines','progress']:
+                    visit.locator(f'[data-nav="{view}"]').click()
+                    self.assertFalse(visit.evaluate('document.documentElement.scrollWidth > innerWidth'))
+        finally:
+            context.close()
 
     def test_routine_editor_snapshot_and_safe_text(self):
         self.page.locator('[data-nav="routines"]').click()
@@ -573,17 +650,25 @@ class DiaryTests(unittest.TestCase):
         self.assertTrue(result['invalid'])
         self.assertEqual(result['active'], 2)
 
-    def test_celebration_preview_motion_and_download(self):
+    def test_celebration_motion_and_download(self):
+        self.page.evaluate("""async () => {
+            const model = await import('./store.js');
+            const { DEFAULT_REWARDS } = await import('./rewards.js');
+            const state = model.loadStore();
+            state.rewardAwards = [{...DEFAULT_REWARDS.find(reward => reward.id === 'bubble-tea'), earnedAt:model.dateKey(), seen:true, redeemed:false}];
+            model.saveStore(state);
+        }""")
+        self.page.reload()
         before = self.stored()
         self.page.emulate_media(reduced_motion='no-preference')
         self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
-        self.page.locator('[data-action="preview-celebration"]').click()
+        self.assertEqual(self.page.locator('[data-action="preview-celebration"]').count(), 0)
+        self.page.locator('[data-action="show-award"]').click()
         self.assertFalse(self.page.locator('[data-action="share-award"]').is_visible())
         self.assertGreater(self.page.locator('.celebration-stage').evaluate('element => element.getAnimations().length'), 0)
         self.page.locator('[data-action="share-award"]').wait_for(state='visible')
         self.assertIn('Felicidades', self.page.locator('.celebration-congrats').inner_text())
-        self.assertIn('Nacion Sushi', self.page.locator('.celebration-next').inner_text())
-        self.assertIn('16 / 30', self.page.locator('.celebration-next').inner_text())
+        self.assertIn('Bubble Tea', self.page.locator('.celebration h3').inner_text())
         for width, height in [(320,740),(402,874),(1440,960)]:
             self.page.set_viewport_size({'width':width,'height':height})
             self.assertFalse(self.page.locator('#sheet').evaluate('element => element.scrollWidth > element.clientWidth'))
@@ -597,7 +682,7 @@ class DiaryTests(unittest.TestCase):
         self.assertEqual(self.stored(), before)
         self.page.get_by_role('button', name='Cerrar', exact=True).click()
         self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
-        self.page.locator('[data-action="preview-celebration"]').click()
+        self.page.locator('[data-action="show-award"]').click()
         self.page.get_by_role('button', name='Cerrar', exact=True).click()
         self.page.get_by_role('button', name='Mis recompensas', exact=True).click()
         self.assertEqual(self.page.locator('.celebration-actions').count(), 0)
@@ -770,6 +855,48 @@ class DiaryTests(unittest.TestCase):
         self.assertIsNotNone(self.page.evaluate('key => localStorage.getItem(key)', account_key))
 
 
+    def test_launch_transition_has_no_overlapping_screens(self):
+        for language in ['es', 'en']:
+            for standalone, width in [(False, 320), (True, 402), (True, 440)]:
+                with self.subTest(language=language, standalone=standalone, width=width):
+                    context = self.browser.new_context(viewport={'width':width,'height':874}, reduced_motion='no-preference', service_workers='block', user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')
+                    try:
+                        context.add_init_script(f"localStorage.setItem('cristina.language.v1', '{language}'); Object.defineProperty(navigator, 'standalone', {{get:() => {str(standalone).lower()}}});")
+                        context.add_init_script("""(() => {
+                            globalThis.launchFrames = [];
+                            function sample() {
+                                const screen = document.querySelector('#launch-screen');
+                                if (!screen) { requestAnimationFrame(sample); return; }
+                                const visible = selector => {
+                                    const element = document.querySelector(selector);
+                                    return !!element && element.checkVisibility({visibilityProperty:true, opacityProperty:true});
+                                };
+                                const title = document.querySelector('.launch-brand h1');
+                                const bounds = title.getBoundingClientRect();
+                                launchFrames.push({launch:visible('#launch-screen'), entry:visible('#entry-screen'), app:visible('.app-shell'), opacity:Number(getComputedStyle(screen).opacity), count:document.querySelectorAll('#launch-screen').length, clipped:bounds.left < 0 || bounds.right > innerWidth || title.scrollWidth > title.clientWidth});
+                                if (!screen.hidden) requestAnimationFrame(sample);
+                            }
+                            requestAnimationFrame(sample);
+                        })();""")
+                        visit = context.new_page()
+                        for reload in [False, True]:
+                            if reload:
+                                visit.reload()
+                            else:
+                                visit.goto(URL)
+                            visit.locator('#launch-screen').wait_for(state='hidden')
+                            visit.wait_for_function('launchFrames.some(frame => !frame.launch)')
+                            frames = visit.evaluate('launchFrames')
+                            self.assertTrue(any(frame['launch'] and 0 < frame['opacity'] < 1 for frame in frames))
+                            self.assertFalse(any(frame['launch'] and (frame['entry'] or frame['app'] or frame['clipped']) for frame in frames))
+                            self.assertTrue(all(frame['count'] == 1 for frame in frames))
+                            self.assertTrue(visit.locator('#entry-screen').is_visible())
+                            self.assertEqual(visit.locator('.launch-brand h1').text_content(), "cristina's fitness")
+                            self.assertEqual(visit.locator('.mobile-brand').text_content(), 'cristina.')
+                            self.assertEqual(visit.locator('.brand > span:last-child').evaluate('element => element.firstChild.textContent'), 'cristina.')
+                    finally:
+                        context.close()
+
     def test_first_open_install_and_loading(self):
         for standalone in [False, True]:
             context = self.browser.new_context(viewport={'width':402,'height':874}, reduced_motion='reduce', service_workers='block', user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')
@@ -797,7 +924,7 @@ class DiaryTests(unittest.TestCase):
                 pending[0].continue_()
                 visit.locator('#launch-screen').wait_for(state='hidden')
                 visit.locator('#entry-screen').wait_for()
-                self.assertIn("cristina's fitness", visit.locator('.entry-brand h1').inner_text())
+                self.assertEqual(visit.locator('.entry-brand h1').inner_text(), 'Bienvenida, Cristina' if standalone else "cristina's fitness")
                 self.assertFalse(visit.locator('#launch-screen').is_visible())
                 self.assertTrue(visit.locator('.app-shell').evaluate('element => element.inert'))
                 self.assertEqual(visit.locator('#cloud-login-form').count(), 1 if standalone else 0)
