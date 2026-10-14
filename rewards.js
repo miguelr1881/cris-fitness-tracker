@@ -2,7 +2,7 @@ import { t } from './i18n.js';
 
 const GOALS = [['barre',8],['swim',2000],['gym',6],['barre',16],['swim',5000],['gym',15],['barre',30],['gymSets',150],['swim',15000],['gym',40],['barre',60],['gym',80]];
 const OLD_DAYS = [8,16,25,36,48,64,80,100,125,155,190,240];
-export const METRICS = { barre: 'clases de Barré / HIT', swim: 'metros nadados', gym: 'sesiones de gimnasio', gymSets: 'series completadas de gimnasio', days: 'días activos' };
+export const METRICS = { barre: 'clases de Barré / HIT', swim: 'metros nadados', gym: 'sesiones de gimnasio', gymSets: 'series completadas de gimnasio', days: 'días activos', heat: 'clases de Heat', flex: 'sesiones de Flex', cardio: 'sesiones de Cardio' };
 
 const LEGACY_REWARDS = [
   { id: 'cookies', name: 'Hersheys de cookies and cream', description: 'Miguel te regala un Hersheys de cookies and cream.', days: 8, icon: 'cookie' },
@@ -98,7 +98,7 @@ export function rewardCount(data, reward, today) {
   const activities = data.activities.filter(activity => activity.date <= today);
   if (reward.metric === 'barre') return activities.filter(activity => ['barre', 'heat'].includes(activity.type)).length;
   if (reward.metric === 'swim') return activities.filter(activity => activity.type === 'swim').reduce((total, activity) => total + (activity.meters || 0), 0);
-  if (reward.metric === 'gym') return activities.filter(activity => activity.type === 'gym').length;
+  if (['gym', 'heat', 'flex', 'cardio'].includes(reward.metric)) return activities.filter(activity => activity.type === reward.metric).length;
   if (reward.metric === 'gymSets') return activities.filter(activity => activity.type === 'gym').reduce((total, activity) => total + (activity.workout?.entries || []).reduce((sum, entry) => sum + entry.sets.filter(set => set.done).length, 0), 0);
   return activeDays(data, today);
 }

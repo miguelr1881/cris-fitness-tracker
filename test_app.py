@@ -74,7 +74,7 @@ class DiaryTests(unittest.TestCase):
             const start = model.periodRange('week', model.dateKey()).start;
             const entries = [[0,'gym',30],[1,'barre',60],[2,'swim',50],[3,'heat',60],
                 [4,'cardio',20],[5,'gym',60],[5,'swim',30],[5,'gym',30],
-                [5,'cardio',0],[5,'cardio',null],[6,'gym',0]];
+                [5,'flex',30],[5,'cardio',0],[5,'cardio',null],[6,'gym',0]];
             state.activities = entries.map(([offset,type,minutes],index) => ({
                 ...state.activities[0], id:`bar-test-${index}`, type, minutes,
                 date:model.shiftDate(start,offset), calories:0, notes:''
@@ -94,15 +94,105 @@ class DiaryTests(unittest.TestCase):
                 expected = self.page.locator(f'.day-dot.{activity_type}').first.evaluate('element => getComputedStyle(element).backgroundColor')
                 self.assertEqual(fill.evaluate('element => getComputedStyle(element).backgroundColor'), expected)
         mixed = columns.nth(5)
-        self.assertEqual(mixed.locator('.bar-fill').count(), 2)
-        self.assertAlmostEqual(mixed.locator('.bar-fill.gym').evaluate('element => parseFloat(element.style.height)'), 75)
-        self.assertAlmostEqual(mixed.locator('.bar-fill.swim').evaluate('element => parseFloat(element.style.height)'), 25)
-        self.assertIn('120 min', mixed.get_attribute('title'))
+        self.assertEqual(mixed.locator('.bar-fill').count(), 3)
+        self.assertAlmostEqual(mixed.locator('.bar-fill.gym').evaluate('element => parseFloat(element.style.height)'), 60)
+        self.assertAlmostEqual(mixed.locator('.bar-fill.swim').evaluate('element => parseFloat(element.style.height)'), 20)
+        self.assertAlmostEqual(mixed.locator('.bar-fill.flex').evaluate('element => parseFloat(element.style.height)'), 20)
+        self.assertEqual(mixed.locator('.bar-fill.flex').evaluate('element => getComputedStyle(element).backgroundColor'), 'rgb(120, 170, 163)')
+        self.assertIn('150 min', mixed.get_attribute('title'))
         self.assertEqual(columns.nth(6).locator('.bar-fill').count(), 0)
         for width in [320,402,1440]:
             self.page.set_viewport_size({'width':width,'height':874})
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
         self.assertEqual(self.stored(), before)
+
+    def test_six_activity_shortcuts_and_flex_persistence(self):
+        expected = ['barre','swim','gym','heat','flex','cardio']
+        before_rewards = self.stored()['rewards']
+        for language in ['es','en']:
+            self.page.evaluate('language => localStorage.setItem("cristina.language.v1",language)', language)
+            self.page.reload()
+            self.page.locator('#launch-screen').wait_for(state='hidden')
+            self.assertEqual(self.page.locator('.quick-action').evaluate_all('buttons => buttons.map(button => button.dataset.type)'), expected)
+            self.assertEqual(self.page.locator('.quick-action svg').count(), 6)
+            self.page.mouse.move(0, 0)
+            self.assertEqual(self.page.locator('.quick-action').evaluate_all('buttons => buttons.map(button => getComputedStyle(button).backgroundColor)'), ['rgb(255, 255, 255)'] * 6)
+            self.assertEqual(self.page.locator('.quick-action svg').evaluate_all('icons => icons.map(icon => getComputedStyle(icon).color)'), ['rgb(160, 135, 181)', 'rgb(125, 159, 181)', 'rgb(130, 156, 134)', 'rgb(176, 126, 140)', 'rgb(131, 166, 160)', 'rgb(178, 143, 100)'])
+            self.assertEqual(self.page.locator('.quick-action').first.evaluate('button => getComputedStyle(button).fontWeight'), '400')
+            for width in [320,402,440,1440]:
+                self.page.set_viewport_size({'width':width,'height':874})
+                bounds = self.page.locator('.quick-action').evaluate_all('buttons => buttons.map(button => {const rect=button.getBoundingClientRect();return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,overflow:button.scrollWidth>button.clientWidth};})')
+                self.assertEqual(len({round(item['y']) for item in bounds}), 2)
+                for column in range(3):
+                    self.assertAlmostEqual(bounds[column]['y'], bounds[0]['y'])
+                    self.assertAlmostEqual(bounds[column+3]['y'], bounds[3]['y'])
+                    self.assertAlmostEqual(bounds[column]['x'], bounds[column+3]['x'])
+                self.assertTrue(all(item['height'] >= 44 and not item['overflow'] for item in bounds))
+                self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
+                self.page.locator('.quick-actions').screenshot(path=str(SCREENSHOTS / f'six-actions-{language}-{width}.png'))
+            self.page.set_viewport_size({'width':402,'height':874})
+            for activity_type in expected:
+                self.page.locator(f'.quick-action[data-type="{activity_type}"]').click()
+                self.assertEqual(self.page.locator('#activity-type').input_value(), activity_type)
+                self.assertEqual(self.page.locator('#activity-type option').count(), 6)
+                self.page.get_by_role('button', name='Cerrar' if language == 'es' else 'Close', exact=True).click()
+                if self.page.locator('#discard-dialog').is_visible():
+                    self.page.locator('[data-action="discard-leave"]').click()
+                self.page.locator('#sheet').wait_for(state='hidden')
+        self.page.locator('.quick-action[data-type="flex"]').click()
+        self.page.locator('[name="minutes"]').fill('35')
+        self.page.locator('[name="notes"]').fill('Flex de prueba')
+        self.page.get_by_role('button', name='Save activity', exact=True).click()
+        self.page.reload()
+        self.page.locator('#launch-screen').wait_for(state='hidden')
+        saved = next(activity for activity in self.stored()['activities'] if activity['type'] == 'flex')
+        self.assertEqual((saved['minutes'], saved['notes']), (35, 'Flex de prueba'))
+        self.assertEqual(self.stored()['rewards'], before_rewards)
+        self.page.locator(f'[data-action="edit-activity"][data-id="{saved["id"]}"]').click()
+        self.page.locator('[name="minutes"]').fill('45')
+        self.page.get_by_role('button', name='Save changes', exact=True).click()
+        self.assertEqual(next(activity for activity in self.stored()['activities'] if activity['id'] == saved['id'])['minutes'], 45)
+
+    def test_custom_heat_flex_cardio_reward_goals(self):
+        result = self.page.evaluate("""async () => {
+            const model = await import('./store.js');
+            const rewards = await import('./rewards.js');
+            const state = model.validateStore(model.emptyStore());
+            const original = JSON.stringify(state.rewards);
+            const template = model.makeDemo('2026-09-24').activities[0];
+            state.activities = ['barre','heat','heat','flex','flex','cardio'].map((type,index) => ({...template,id:`goal-${index}`,type}));
+            state.activities.push({...template,id:'future-flex',type:'flex',date:'2030-01-01'});
+            const counts = ['barre','heat','flex','cardio'].map(metric => rewards.rewardCount(state,{metric},'2026-09-24'));
+            const defaultsUnchanged = original === JSON.stringify(model.validateStore(state).rewards);
+            state.rewards = ['heat','flex','cardio'].map(metric => ({id:metric,name:`Personal ${metric}`,description:'Texto personal',metric,days:2,icon:'gift'}));
+            const earned = rewards.unlockRewards(state,'2026-09-24');
+            const repeated = rewards.unlockRewards(earned,'2026-09-24');
+            const restored = model.validateStore(JSON.parse(JSON.stringify(earned)));
+            restored.rewards[0].metric = 'cardio';
+            return {counts,defaultsUnchanged,defaultCount:rewards.DEFAULT_REWARDS.length,earned:earned.rewardAwards.map(award=>award.id),once:repeated.rewardAwards.length,roundtrip:JSON.stringify(restored.activities)===JSON.stringify(earned.activities),awardMetric:restored.rewardAwards[0].metric};
+        }""")
+        self.assertEqual(result, {'counts':[3,2,2,1], 'defaultsUnchanged':True, 'defaultCount':14, 'earned':['heat','flex'], 'once':2, 'roundtrip':True, 'awardMetric':'heat'})
+        before = self.stored()
+        self.page.locator('.mobile-settings').click()
+        self.page.get_by_role('button', name='Editar recompensas', exact=True).click()
+        self.page.locator('[name="pin"]').fill('1318')
+        self.page.get_by_role('button', name='Desbloquear', exact=True).click()
+        for metric in ['cardio','heat','flex']:
+            self.page.get_by_role('button', name='Añadir recompensa', exact=True).click()
+            self.page.locator('[name="name"]').fill(f'Regalo {metric}')
+            self.page.locator('[name="metric"]').select_option(metric)
+            self.page.locator('[name="days"]').fill('100')
+            self.page.get_by_role('button', name='Guardar recompensa', exact=True).click()
+            saved = next(reward for reward in self.stored()['rewards'] if reward['metric'] == metric)
+            self.page.locator(f'[data-action="edit-reward"][data-id="{saved["id"]}"]').click()
+            self.assertEqual(self.page.locator('[name="metric"]').input_value(), metric)
+            self.page.locator('[name="days"]').fill('101')
+            self.page.get_by_role('button', name='Guardar recompensa', exact=True).click()
+        self.page.reload()
+        self.page.locator('#launch-screen').wait_for(state='hidden')
+        self.assertEqual([(reward['metric'],reward['days']) for reward in self.stored()['rewards']], [('cardio',101),('heat',101),('flex',101)])
+        self.assertEqual(self.stored()['activities'], before['activities'])
+        self.assertEqual(self.stored()['rewardAwards'], before['rewardAwards'])
 
     def test_domain_edit_and_summary(self):
         result = self.page.evaluate("""async () => {
@@ -110,7 +200,7 @@ class DiaryTests(unittest.TestCase):
                     if (model.TYPES.gym.label !== 'Gimnasio') throw Error('Gym label must be Gimnasio');
           let state = model.makeDemo('2026-09-24');
           const rewards = await import('./rewards.js');
-          if (model.TYPES.heat.label !== 'Barré HIT') throw Error('HIT label missing');
+          if (model.TYPES.heat.label !== 'Heat') throw Error('Heat label missing');
           const legacy = model.validateStore({...state, activities:state.activities.filter(activity => activity.type === 'heat')});
           if (rewards.rewardCount(legacy, {metric:'barre'}, '2026-09-24') !== 2) throw Error('Legacy HIT records lost');
           if (rewards.rewardGoal({metric:'barre', days:1}) !== '1 clase de Barré / HIT' || rewards.rewardGoal({metric:'barre', days:8}) !== '8 clases de Barré / HIT') throw Error('HIT goal labels missing');
@@ -680,7 +770,7 @@ class DiaryTests(unittest.TestCase):
           const active = rewards.rewardCount(workout, {metric:'gym'}, '2026-09-24');
           return {counts,before,earned,migrated:[migrated.metric,migrated.days],custom:[custom.metric,custom.days],award:[awarded.days,awarded.redeemed],invalid,active};
         }""")
-        self.assertEqual(result['counts'], [6, 2800, 2, 0, 12])
+        self.assertEqual(result['counts'], [6, 2800, 2, 0, 12, 2, 0, 1])
         self.assertEqual(result['before'], 0)
         self.assertEqual(result['earned'], ['swim'])
         self.assertEqual(result['migrated'], ['swim', 2000])
@@ -950,7 +1040,7 @@ class DiaryTests(unittest.TestCase):
             before = visit.evaluate("localStorage.getItem('cristina.diary.preview.v1')")
             result = visit.evaluate("""async () => {
                 const manifestURL = document.querySelector('link[rel="manifest"]').href;
-                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.8.3-'));
+                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.9.0-'));
                 const cache = await caches.open(cacheName);
                 await cache.put(manifestURL, new Response(JSON.stringify({name:'Cri',short_name:'Cri'}), {headers:{'Content-Type':'application/manifest+json'}}));
                 const old = await (await cache.match(manifestURL)).json();
@@ -1064,7 +1154,7 @@ class DiaryTests(unittest.TestCase):
                     dimensions = visit.evaluate("async source => { const image = new Image(); image.src = source; await image.decode(); return [image.naturalWidth,image.naturalHeight]; }", asset['src'])
                     expected = int(asset['sizes'].split('x')[0])
                     self.assertEqual(dimensions, [expected, expected])
-                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.8.3')
+                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.9.0')
                 self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
                 self.assertEqual(visit.get_by_role('button', name='Cerrar', exact=True).count(), 0)
                 visit.keyboard.press('Escape')
