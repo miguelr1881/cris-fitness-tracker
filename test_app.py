@@ -67,6 +67,43 @@ class DiaryTests(unittest.TestCase):
         self.page.get_by_role('button', name='Iniciar sesión', exact=True).click()
         self.page.wait_for_selector('.workout')
 
+    def test_week_bars_use_activity_colors_and_minutes(self):
+        self.page.evaluate("""async () => {
+            const model = await import('./store.js');
+            const state = model.loadStore();
+            const start = model.periodRange('week', model.dateKey()).start;
+            const entries = [[0,'gym',30],[1,'barre',60],[2,'swim',50],[3,'heat',60],
+                [4,'cardio',20],[5,'gym',60],[5,'swim',30],[5,'gym',30],
+                [5,'cardio',0],[5,'cardio',null],[6,'gym',0]];
+            state.activities = entries.map(([offset,type,minutes],index) => ({
+                ...state.activities[0], id:`bar-test-${index}`, type, minutes,
+                date:model.shiftDate(start,offset), calories:0, notes:''
+            }));
+            model.saveStore(state);
+        }""")
+        before = self.stored()
+        self.page.reload()
+        self.page.locator('#launch-screen').wait_for(state='hidden')
+        columns = self.page.locator('.bar-column')
+        self.assertEqual(columns.count(), 7)
+        for index, activity_type in enumerate(['gym','barre','swim','heat','cardio']):
+            with self.subTest(activity_type=activity_type):
+                fill = columns.nth(index).locator('.bar-fill')
+                self.assertEqual(fill.count(), 1)
+                self.assertIn(activity_type, fill.get_attribute('class').split())
+                expected = self.page.locator(f'.day-dot.{activity_type}').first.evaluate('element => getComputedStyle(element).backgroundColor')
+                self.assertEqual(fill.evaluate('element => getComputedStyle(element).backgroundColor'), expected)
+        mixed = columns.nth(5)
+        self.assertEqual(mixed.locator('.bar-fill').count(), 2)
+        self.assertAlmostEqual(mixed.locator('.bar-fill.gym').evaluate('element => parseFloat(element.style.height)'), 75)
+        self.assertAlmostEqual(mixed.locator('.bar-fill.swim').evaluate('element => parseFloat(element.style.height)'), 25)
+        self.assertIn('120 min', mixed.get_attribute('title'))
+        self.assertEqual(columns.nth(6).locator('.bar-fill').count(), 0)
+        for width in [320,402,1440]:
+            self.page.set_viewport_size({'width':width,'height':874})
+            self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
+        self.assertEqual(self.stored(), before)
+
     def test_domain_edit_and_summary(self):
         result = self.page.evaluate("""async () => {
           const model = await import('./store.js');
@@ -913,7 +950,7 @@ class DiaryTests(unittest.TestCase):
             before = visit.evaluate("localStorage.getItem('cristina.diary.preview.v1')")
             result = visit.evaluate("""async () => {
                 const manifestURL = document.querySelector('link[rel="manifest"]').href;
-                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.8.2-'));
+                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.8.3-'));
                 const cache = await caches.open(cacheName);
                 await cache.put(manifestURL, new Response(JSON.stringify({name:'Cri',short_name:'Cri'}), {headers:{'Content-Type':'application/manifest+json'}}));
                 const old = await (await cache.match(manifestURL)).json();
@@ -1027,7 +1064,7 @@ class DiaryTests(unittest.TestCase):
                     dimensions = visit.evaluate("async source => { const image = new Image(); image.src = source; await image.decode(); return [image.naturalWidth,image.naturalHeight]; }", asset['src'])
                     expected = int(asset['sizes'].split('x')[0])
                     self.assertEqual(dimensions, [expected, expected])
-                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.8.2')
+                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.8.3')
                 self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
                 self.assertEqual(visit.get_by_role('button', name='Cerrar', exact=True).count(), 0)
                 visit.keyboard.press('Escape')
