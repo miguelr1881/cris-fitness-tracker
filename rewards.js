@@ -2,7 +2,7 @@ import { t } from './i18n.js';
 
 const GOALS = [['barre',8],['swim',2000],['gym',6],['barre',16],['swim',5000],['gym',15],['barre',30],['gymSets',150],['swim',15000],['gym',40],['barre',60],['gym',80]];
 const OLD_DAYS = [8,16,25,36,48,64,80,100,125,155,190,240];
-export const METRICS = { barre: 'clases de Barré / HIT', swim: 'metros nadados', gym: 'sesiones de gimnasio', gymSets: 'series completadas de gimnasio', days: 'días activos', heat: 'clases de Heat', flex: 'sesiones de Flex', cardio: 'sesiones de Cardio' };
+export const METRICS = { barre: 'clases de Barré / HIT', swim: 'metros nadados', gym: 'sesiones de gimnasio', gymSets: 'series completadas de gimnasio', days: 'días activos', heat: 'clases de HIIT', flex: 'sesiones de Flex', cardio: 'sesiones de Cardio' };
 
 const LEGACY_REWARDS = [
   { id: 'cookies', name: 'Hersheys de cookies and cream', description: 'Miguel te regala un Hersheys de cookies and cream.', days: 8, icon: 'cookie' },

@@ -115,6 +115,7 @@ class DiaryTests(unittest.TestCase):
             self.page.locator('#launch-screen').wait_for(state='hidden')
             self.assertEqual(self.page.locator('.quick-action').evaluate_all('buttons => buttons.map(button => button.dataset.type)'), expected)
             self.assertEqual(self.page.locator('.quick-action svg').count(), 6)
+            self.assertEqual(self.page.locator('.quick-action[data-type="heat"]').inner_text(), 'HIIT')
             self.page.mouse.move(0, 0)
             self.assertEqual(self.page.locator('.quick-action').evaluate_all('buttons => buttons.map(button => getComputedStyle(button).backgroundColor)'), ['rgb(255, 255, 255)'] * 6)
             self.assertEqual(self.page.locator('.quick-action svg').evaluate_all('icons => icons.map(icon => getComputedStyle(icon).color)'), ['rgb(160, 135, 181)', 'rgb(125, 159, 181)', 'rgb(130, 156, 134)', 'rgb(176, 126, 140)', 'rgb(131, 166, 160)', 'rgb(178, 143, 100)'])
@@ -135,6 +136,7 @@ class DiaryTests(unittest.TestCase):
                 self.page.locator(f'.quick-action[data-type="{activity_type}"]').click()
                 self.assertEqual(self.page.locator('#activity-type').input_value(), activity_type)
                 self.assertEqual(self.page.locator('#activity-type option').count(), 6)
+                self.assertEqual(self.page.locator('#activity-type option[value="heat"]').inner_text(), 'HIIT')
                 self.page.get_by_role('button', name='Cerrar' if language == 'es' else 'Close', exact=True).click()
                 if self.page.locator('#discard-dialog').is_visible():
                     self.page.locator('[data-action="discard-leave"]').click()
@@ -181,6 +183,7 @@ class DiaryTests(unittest.TestCase):
             self.page.get_by_role('button', name='Añadir recompensa', exact=True).click()
             self.page.locator('[name="name"]').fill(f'Regalo {metric}')
             self.page.locator('[name="metric"]').select_option(metric)
+            self.assertEqual(self.page.locator('[name="metric"] option[value="heat"]').inner_text(), 'clases de HIIT')
             self.page.locator('[name="days"]').fill('100')
             self.page.get_by_role('button', name='Guardar recompensa', exact=True).click()
             saved = next(reward for reward in self.stored()['rewards'] if reward['metric'] == metric)
@@ -200,7 +203,7 @@ class DiaryTests(unittest.TestCase):
                     if (model.TYPES.gym.label !== 'Gimnasio') throw Error('Gym label must be Gimnasio');
           let state = model.makeDemo('2026-09-24');
           const rewards = await import('./rewards.js');
-          if (model.TYPES.heat.label !== 'Heat') throw Error('Heat label missing');
+          if (model.TYPES.heat.label !== 'HIIT') throw Error('HIIT label missing');
           const legacy = model.validateStore({...state, activities:state.activities.filter(activity => activity.type === 'heat')});
           if (rewards.rewardCount(legacy, {metric:'barre'}, '2026-09-24') !== 2) throw Error('Legacy HIT records lost');
           if (rewards.rewardGoal({metric:'barre', days:1}) !== '1 clase de Barré / HIT' || rewards.rewardGoal({metric:'barre', days:8}) !== '8 clases de Barré / HIT') throw Error('HIT goal labels missing');
@@ -1040,7 +1043,7 @@ class DiaryTests(unittest.TestCase):
             before = visit.evaluate("localStorage.getItem('cristina.diary.preview.v1')")
             result = visit.evaluate("""async () => {
                 const manifestURL = document.querySelector('link[rel="manifest"]').href;
-                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.9.0-'));
+                const cacheName = (await caches.keys()).find(key => key.startsWith('cri-shell-0.9.1-'));
                 const cache = await caches.open(cacheName);
                 await cache.put(manifestURL, new Response(JSON.stringify({name:'Cri',short_name:'Cri'}), {headers:{'Content-Type':'application/manifest+json'}}));
                 const old = await (await cache.match(manifestURL)).json();
@@ -1154,7 +1157,7 @@ class DiaryTests(unittest.TestCase):
                     dimensions = visit.evaluate("async source => { const image = new Image(); image.src = source; await image.decode(); return [image.naturalWidth,image.naturalHeight]; }", asset['src'])
                     expected = int(asset['sizes'].split('x')[0])
                     self.assertEqual(dimensions, [expected, expected])
-                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.9.0')
+                self.assertEqual(visit.locator('link[rel="apple-touch-icon"]').get_attribute('href'), 'apple-touch-icon.png?v=0.9.1')
                 self.assertEqual(visit.locator('link[rel="apple-touch-startup-image"]').count(), 4)
                 self.assertEqual(visit.get_by_role('button', name='Cerrar', exact=True).count(), 0)
                 visit.keyboard.press('Escape')
